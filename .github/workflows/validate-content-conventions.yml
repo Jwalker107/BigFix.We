@@ -1,0 +1,140 @@
+name: Validate BigFix content conventions
+
+# Runs three vendored pre-commit-bigfix checks against every *.bes file added
+# or modified under content/Analysis, content/Fixlet, or content/Task in a
+# pull request - the convention/lint counterpart to validate-content.yml
+# (which only checks BES.xsd schema validity):
+#   - bes-conventions-check              (scripts/pre_commit_bigfix/bes_conventions_check.py)
+#   - bes-actionscript-lint-schclass     (.../bes_actionscript_lint_schclass.py)
+#   - bes-actionscript-validate-prefetch (.../bes_actionscript_validate_prefetch.py)
+# These are vendored, unmodified, from https://github.com/jgstew/pre-commit-bigfix
+# - see scripts/pre_commit_bigfix/VENDORED.md for exactly what and why.
+#
+# Security posture - PR content (including from forks) is untrusted input, and
+# this workflow, unlike validate-content.yml, actually EXECUTES Python code
+# against that content, which raises the stakes considerably:
+#   - Trigger is `pull_request`, never `pull_request_target`: read-only token,
+#     no repository secrets, runs against the PR's own head.
+#   - `permissions` is pinned to exactly what's read here.
+#   - CRITICAL: the checker code itself (scripts/pre_commit_bigfix/**,
+#     scripts/requirements.txt) is extracted from the PR's *base* commit,
+#     NEVER from the PR's own tree (see "Extract the checker code" below). A
+#     PR touching content/ could otherwise also rewrite the very script that's
+#     about to grade it - weaken a check, or worse, since it's Python that
+#     this job runs, do anything at all inside the runner - and grade itself.
+#     Only the *.bes files under review ever come from the PR head; the code
+#     that reads them never does. The one narrow exception is the PR that
+#     first introduces scripts/pre_commit_bigfix/ (nothing to fall back to on
+#     the base yet); see that step for how it's handled and flagged.
+#   - --auto-fix=no / --auto-fix-network=no are passed explicitly to every
+#     script that supports them: this is a read-only check, nothing should
+#     rewrite files in the runner's checkout, and --auto-fix-network would
+#     mean this job downloads whatever URL a malicious PR's prefetch line
+#     names - never enabled here.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "content/Analysis/**"
+      - "content/Fixlet/**"
+      - "content/Task/**"
+
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: validate-content-conventions-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR head (the content under review)
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+          # Deliberately NOT persist-credentials: false - the next step reuses
+          # this same injected, read-only credential for its own `git fetch`.
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Extract the checker code from the PR base (never the PR's own copy)
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin "$BASE_SHA"
+          mkdir -p "$RUNNER_TEMP/validators/scripts"
+
+          if git cat-file -e "$BASE_SHA:scripts/pre_commit_bigfix/bes_conventions_check.py" 2>/dev/null; then
+            git archive "$BASE_SHA" -- scripts/pre_commit_bigfix scripts/requirements.txt \
+              | tar -x -C "$RUNNER_TEMP/validators"
+          else
+            # Only true for the PR that first adds scripts/pre_commit_bigfix/ -
+            # there is no earlier trusted copy to fall back to yet, so (and only
+            # so) this one run uses the PR's own copy, under whatever review
+            # that introducing PR itself gets. Every subsequent PR validates
+            # against the by-then-merged, trusted base copy above instead.
+            echo "::warning::scripts/pre_commit_bigfix is not present on the PR base yet - falling back to the PR's own copy for this run only. This is expected solely for the PR that first introduces it."
+            cp -r scripts/pre_commit_bigfix scripts/requirements.txt "$RUNNER_TEMP/validators/scripts/"
+          fi
+
+      - name: Install checker dependencies
+        run: python -m pip install --disable-pip-version-check -r "$RUNNER_TEMP/validators/scripts/requirements.txt"
+
+      - name: List changed .bes files under content/Analysis, content/Fixlet, content/Task
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          set -euo pipefail
+          gh api \
+            --paginate \
+            "repos/${REPO}/pulls/${PR_NUMBER}/files" \
+            --jq '.[] | select(.status != "removed") | .filename' \
+            > "$RUNNER_TEMP/changed-files.txt"
+
+          # NUL-separated so no filename (spaces, quotes, unicode, a leading
+          # "-", ...) can be misread as extra shell tokens or tool options.
+          # Unlike validate-content.yml, this workflow only cares about *.bes
+          # files - anything else under these directories is out of scope for
+          # these checks (validate-content.yml owns the extension itself).
+          grep -E '^content/(Analysis|Fixlet|Task)/.*\.bes$' "$RUNNER_TEMP/changed-files.txt" \
+            | tr '\n' '\0' > "$RUNNER_TEMP/changed-files.nul" || true
+
+      - name: Run BES convention, ActionScript lint, and prefetch checks
+        env:
+          PYTHONPATH: ${{ runner.temp }}/validators/scripts
+        run: |
+          set -uo pipefail  # NOT -e: every check below must run even if an earlier one fails
+          fail=0
+
+          if [ ! -s "$RUNNER_TEMP/changed-files.nul" ]; then
+            echo "No *.bes files under content/Analysis, content/Fixlet, or content/Task changed; nothing to check."
+            exit 0
+          fi
+
+          mapfile -d '' files < "$RUNNER_TEMP/changed-files.nul"
+          echo "Checking ${#files[@]} file(s)."
+
+          echo "::group::bes-conventions-check"
+          python -m pre_commit_bigfix.bes_conventions_check --auto-fix=no "${files[@]}" || fail=1
+          echo "::endgroup::"
+
+          echo "::group::bes-actionscript-lint-schclass"
+          python -m pre_commit_bigfix.bes_actionscript_lint_schclass "${files[@]}" || fail=1
+          echo "::endgroup::"
+
+          echo "::group::bes-actionscript-validate-prefetch"
+          python -m pre_commit_bigfix.bes_actionscript_validate_prefetch \
+            --auto-fix=no --auto-fix-network=no "${files[@]}" || fail=1
+          echo "::endgroup::"
+
+          exit "$fail"

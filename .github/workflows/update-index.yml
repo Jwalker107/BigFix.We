@@ -1,0 +1,49 @@
+name: Update content index
+
+# Keeps docs/index.json (the file listing consumed by the GitHub Pages viewer,
+# published from the repo root - see index.html there) up to date with the .bes
+# files in content/. generate_index.py only reads content/, so that's the only
+# path that can actually change its output - scoping the trigger to it also
+# means a push that only updates docs/index.json can't retrigger this run.
+on:
+  push:
+    branches: [main]
+    paths:
+      - "content/**"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-index-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  update-index:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.x"
+
+      - name: Regenerate docs/index.json
+        run: python scripts/generate_index.py
+
+      - name: Commit and push if changed
+        run: |
+          if git diff --quiet -- docs/index.json; then
+            echo "index.json unchanged, nothing to commit"
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/index.json
+          git commit -m "Update content index [skip ci]"
+          git push origin HEAD:${{ github.ref_name }}
