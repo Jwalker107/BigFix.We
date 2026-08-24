@@ -1,0 +1,53 @@
+# See https://pre-commit.com for more information
+# See https://pre-commit.com/hooks.html for more hooks
+#
+# Install once per clone with `pre-commit install`, then these run
+# automatically on `git commit` against whatever's staged. Run manually
+# against everything with `pre-commit run --all-files`.
+#
+# .bes files are excluded from the generic whitespace/EOF hooks below: they
+# must be CRLF throughout (see bes-conventions-check's E208), and the
+# generic hooks don't know that convention - bes-conventions-check does, and
+# owns that formatting for .bes files instead.
+#
+# Every `rev:` below is a full commit SHA, not a tag: a tag is just a
+# mutable ref (its owner can force-move it, or a compromised account could
+# retag it to point at malicious content) while a commit SHA is the content
+# itself - pre-commit clones and checks out exactly that object, so pinning
+# this way is what actually guarantees the version below is what runs, not
+# just what USED to be tagged that. The trailing comment names the release
+# each SHA corresponds to; re-verify with
+# `git ls-remote <repo-url> refs/tags/<tag>` before bumping either.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: 3e8a8703264a2f4a69428a0aa4dcb512790b2c8c # v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: \.bes$
+      - id: end-of-file-fixer
+        exclude: \.bes$
+      - id: check-yaml
+      - id: check-added-large-files
+
+  # BigFix-specific content checks - the same hooks this repo's own CI runs
+  # (see scripts/pre_commit_bigfix/VENDORED.md and
+  # .github/actions/validate-content-conventions), so a contributor sees the
+  # same feedback locally, before ever pushing. Unlike CI, these are left at
+  # their own default here (no --auto-fix=no): pre-commit always passes the
+  # staged files explicitly, and bes-conventions-check /
+  # bes-actionscript-validate-prefetch both default --auto-fix to "yes" in
+  # exactly that case - the fixable issues get corrected in place and the
+  # commit is blocked so you can review and re-stage, which is the normal
+  # pre-commit hook experience (the same shape as e.g. a code formatter).
+  #
+  # bes-schema-validate (BES.xsd validation) is deliberately NOT included:
+  # this repo already validates against scripts/BES.xsd directly with
+  # xmllint (see .github/actions/validate-content), so adding this hook's
+  # own validate_bes_xml-based check here would just be a second, possibly
+  # inconsistent, schema check.
+  - repo: https://github.com/jgstew/pre-commit-bigfix
+    rev: 477019be8f87f09c71079d38d12b998abc63d358 # v0.6.1
+    hooks:
+      - id: bes-conventions-check
+      - id: bes-actionscript-lint-schclass
+      - id: bes-actionscript-validate-prefetch
