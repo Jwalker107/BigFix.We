@@ -7,32 +7,38 @@ This repository is intended to foster sharing and collaboration between BigFix c
 
 ## Organization
 
-Content in this repo should be organized in directory structures mirroring what one might expect from Custom Sites organization in a BigFix Deployment (which provides for ease of direct copies into a BigFix Deployment).  BigFix Platform content - Fixlets, Analyses, Tasks, ComputerGroups, etc. - should be submitted as .bes files for direct import to the Console; BigFix Inventory Signatures should be submitted as .xml files that can be directly uploaded or pasted into the BigFix Inventory interface; AI skills should be submitted as Markdown documents.
+The repository structure should follow standard BigFix Endpoint Manager (BES) Support site propagation conventions. Site content is organized as follows.
 
-While this certainly may change over time, an example expected structure may be represented as
-```
-/Content/BigFix Management/Task/Relay - Apply _BESClient_Relay_NameOverride.bes
-/Content/BigFix Management/Task/Relay - Remove _BESClient_Relay_NameOverride.bes
-/Content/BigFix Management/Analysis/Relay Properties.bes
-/Content/BigFix Management/Fixlet/BES Server - Apply directory exclusions for Defender scans - Windows.bes
-/Content/BigFix Management/Fixlet/BES Server - Remove directory exclusions for Defender scans - Windows.bes
+- **`Fixlets/`**: Stores Fixlet content in standard BigFix `.bes` files.
+    - Compilation: Each top-level directory within `Fixlets/` is compiled into a single `.fxf` file containing all nested content (e.g., `Fixlets/Security/` compiles into `Security.fxf`).
+    - Subfolders: Nested folders are optional; their contents are automatically included in the parent folder's `.fxf` file.
+- **`NonClientFiles/`**: Stores server-side assets, scripts, and metadata not deployed to endpoints.
+- **`OtherFiles/`**: Stores additional non-client site artifacts.
 
-/Content/Windows Software/Task/Notepad++ - Install.bes
-/Content/Windows Software/Task/Notepad++ - UnInstall.bes
-/Content/Windows Software/Fixlet/Notepad++ - Upgrade.bes
-/Content/Windows Software/Analysis/Install Sofware List - Windows.bes
+SiteContent/
+├── Fixlets/
+│   ├── BigFix Management/
+│   │   ├── 1- Task1.bes
+│   │   └── 12- Fixlet1.bes
+│   │   
+│   └── Mac Software/
+│   │   └── 3- RebootTask.bes
+│   │
+│   └── Windows Software/
+│       └── 4- RebootTask.bes
+│   
+├── NonClientFiles/
+│   └── server_script.sh
+└── OthersFiles/
+    └── documentation.pdf
 
-/Content/Mac Software/Task/VSCode - Install.bes
-/Content/Mac Software/Task/VSCode - UnInstall.bes
-/Content/Mac Software/Fixlet/VSCode - Upgrade.bes
+BigFix Inventory Signatures/react-server-dom CVE-2025-55182,AFFECTED.xml
+BigFix Inventory Signatures/react-server-dom CVE-2025-55182,SAFE.xml
 
-/Content/BigFix Inventory Signatures/react-server-dom CVE-2025-55182,AFFECTED.xml
-/Content/BigFix Inventory Signatures/react-server-dom CVE-2025-55182,SAFE.xml
-
-/Content/AI Skills/Relevance-Generator-Skill.md
-/Content/AI Skills/Product-Release-Detector-Skill.md
-/Content/AI Skills/Fixlet-Generator-Skill.md
-/Content/AI Skills/BigFix-Operator-Skill.md
+AI Skills/Relevance-Generator-Skill.md
+AI Skills/Product-Release-Detector-Skill.md
+AI Skills/Fixlet-Generator-Skill.md
+AI Skills/BigFix-Operator-Skill.md
 ```
 
 ## Attribution
