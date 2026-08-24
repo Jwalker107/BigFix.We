@@ -5,15 +5,19 @@ description: >
   auto-fix behavior run, then commits any resulting corrections back onto
   the PR's own branch as a new "[bot] ..." commit.
 
-# Requires the CALLING WORKFLOW's checkout to have taken no `ref:` override
-# (so it resolves to the BASE branch) - see the calling workflow. This
-# action then fetches and checks out the PR's own branch itself, partway
-# through its own steps, once it is already running trusted code loaded
-# from that base checkout - see assign-content-ids's own file (the earlier,
-# now-retired PR-time action this one's checkout/push mechanics are copied
-# from) for why that ordering is safe: a composite action's steps are all
-# resolved from disk at the moment its `uses:` line is reached, not re-read
-# per step.
+# Requires the CALLING WORKFLOW's checkout to have pinned `ref:` explicitly
+# to the PR's BASE commit (`github.event.pull_request.base.sha`) - see the
+# calling workflow. Under this action's plain-`pull_request` trigger, an
+# unoverridden checkout defaults to the PR's own merge ref, not the base
+# branch, so that pin is load-bearing, not cosmetic - without it, this
+# action's own definition (and the trust logic below) would be loaded from
+# the PR's own tree instead. This action then fetches and checks out the
+# PR's own branch itself, partway through its own steps, once it is already
+# running trusted code loaded from that base checkout - see
+# assign-content-ids's own file (the earlier, now-retired PR-time action
+# this one's checkout/push mechanics are copied from) for why that ordering
+# is safe: a composite action's steps are all resolved from disk at the
+# moment its `uses:` line is reached, not re-read per step.
 #
 # Security posture - PR content (including from forks) is untrusted input,
 # and this action both EXECUTES arbitrary hook code (pre-commit's whole job)
@@ -34,12 +38,17 @@ description: >
 #     checked-out tree.
 #   - pre-commit itself is pinned to a fixed released version (not "latest
 #     at run time") for the same reproducibility/supply-chain reason.
-#   - Fork PRs are detected and skipped (with an explanatory PR comment
-#     instead): the default GITHUB_TOKEN cannot push to a fork's branch even
-#     under `pull_request_target`, regardless of the "Allow edits from
+#   - Fork PRs are detected and skipped (with an explanatory log notice
+#     instead of a PR comment - see "Log that fork PRs need pre-commit run
+#     manually" below): the default GITHUB_TOKEN cannot push to a fork's
+#     branch regardless of trigger type or the "Allow edits from
 #     maintainers" checkbox (that grants access to human maintainers via the
 #     UI, not to the Actions bot identity) - there is no working default
-#     here to fall back to.
+#     here to fall back to. A log notice, unlike a PR comment, needs no
+#     write permission, which matters here: under this action's calling
+#     workflow's plain `pull_request` trigger, a fork PR's token is forced
+#     read-only regardless of the `permissions:` declared there, so a
+#     `gh api ... issues/comments` call would simply fail.
 #   - A PR head ref name that starts with "-" is rejected outright before
 #     being used in any git command, as cheap insurance against it being
 #     misread as an option rather than a branch name. Every value taken from
@@ -103,18 +112,17 @@ runs:
           echo "is_fork=false" >> "$GITHUB_OUTPUT"
         fi
 
-    - name: Comment that fork PRs need pre-commit run manually
+    - name: Log that fork PRs need pre-commit run manually
       if: steps.fork.outputs.is_fork == 'true'
       shell: bash
-      env:
-        GH_TOKEN: ${{ github.token }}
-        REPO: ${{ github.repository }}
-        PR_NUMBER: ${{ github.event.pull_request.number }}
       run: |
         set -euo pipefail
-        gh api --method POST "repos/${REPO}/issues/${PR_NUMBER}/comments" \
-          -f body="This pull request comes from a fork, so GitHub Actions can't push a pre-commit auto-fix commit back to it with the default token. Please install pre-commit locally (\`pre-commit install\`) and run \`pre-commit run --all-files\`, then push the result - or a maintainer can do so on your behalf." \
-          >/dev/null
+        # A log notice, not a PR comment: this job's token is forced
+        # read-only for a fork PR under the calling workflow's plain
+        # `pull_request` trigger, so a `gh api ... issues/comments` POST
+        # would just fail here. See this file's header for why that's the
+        # right trade rather than reaching for `pull_request_target`.
+        echo "::notice::This pull request comes from a fork, so this job can't push a pre-commit auto-fix commit back to it (GitHub Actions can never push to a fork's branch, regardless of token). Please install pre-commit locally (pre-commit install) and run 'pre-commit run --all-files', then push the result - or a maintainer can do so on your behalf."
 
     - name: Checkout the PR branch (same-repo PRs only)
       if: steps.fork.outputs.is_fork == 'false'

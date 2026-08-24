@@ -1,4 +1,4 @@
-name: Flag changes outside validated content directories
+name: Flag changes outside expected content directories
 
 # Thin caller for .github/actions/flag-out-of-scope-changes - see that
 # action's own file for the full design (what counts as "out of scope", the
@@ -58,7 +58,7 @@ jobs:
         if: always()
         run: |
           if [ "${{ steps.flag.outputs.flagged }}" != "0" ]; then
-            echo "${{ steps.flag.outputs.flagged }} file(s) outside the validated content directories - requested changes and labeled needs-manual-review. A human must dismiss the review (and remove the label) after reviewing."
+            echo "${{ steps.flag.outputs.flagged }} file(s) outside the expected content directories - requested changes and labeled needs-manual-review. A human must dismiss the review (and remove the label) after reviewing."
           else
             echo "No changes outside any Sites/*/Fixlets directory or the top-level Signatures/ directory."
           fi
