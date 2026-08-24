@@ -1,0 +1,55 @@
+name: pre-commit auto-fix
+
+# Thin caller for .github/actions/run-pre-commit-autofix - see that action's
+# own file for the full design (why .pre-commit-config.yaml must come from
+# the PR base, the fork-PR limitation, and why file bytes from the PR are
+# only ever fed to pinned, trusted hook code). This workflow supplies only
+# the trigger and the permissions/token the action needs.
+#
+# No `paths:` filter, deliberately: the generic hooks in
+# .pre-commit-config.yaml (check-yaml, trailing-whitespace, ...) are useful
+# on any file in the repo, not just BigFix content - e.g. the very workflow
+# and action YAML files under .github/ benefit from check-yaml.
+#
+# Why `pull_request_target` (same reasoning as flag-out-of-scope-changes.yml
+# and the retired PR-time assign-content-ids): committing and pushing a fix
+# back onto the PR's own branch needs a WRITE token, and the default
+# GITHUB_TOKEN for a fork PR under plain `pull_request` is forced read-only -
+# there is no way to do this job under that trigger. Unlike
+# assign-content-ids (moved to update-index.yml, post-merge, specifically to
+# avoid a shared-counter race between concurrent PRs), there is no
+# equivalent shared state here - each PR's auto-fixes are scoped entirely to
+# its own branch - so running this at PR-time has no analogous downside.
+#
+# The checkout below is required - `uses: ./.github/actions/...` can't
+# resolve without the repo present on disk - but it deliberately takes no
+# `ref:` override, so it resolves to the BASE branch, never the PR's own
+# tree. That's what keeps this safe: the action definition (and, in turn,
+# the .pre-commit-config.yaml it reads) that runs with the write token is
+# always the already-reviewed version from main, never whatever a PR's own
+# commit might have rewritten either of them to.
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: read
+  issues: write
+
+concurrency:
+  group: pre-commit-autofix-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  pre-commit-autofix:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout the base branch (never the PR's own tree)
+        uses: actions/checkout@v4
+        # No `ref:` override: this is what makes actions/checkout resolve to
+        # the base branch under pull_request_target instead of the PR head.
+
+      - name: Run pre-commit and push any auto-fixes
+        uses: ./.github/actions/run-pre-commit-autofix
