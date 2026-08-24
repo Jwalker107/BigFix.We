@@ -1,15 +1,17 @@
 name: Update content index
 
 # Keeps docs/index.json (the file listing consumed by the GitHub Pages viewer,
-# published from the repo root - see index.html there) up to date with the .bes
-# files in content/. generate_index.py only reads content/, so that's the only
-# path that can actually change its output - scoping the trigger to it also
-# means a push that only updates docs/index.json can't retrigger this run.
+# published from the repo root - see index.html there) up to date with the
+# .bes/.xml files in Sites/ and Signatures/. generate_index.py only reads
+# those two, so that's the only path that can actually change its output -
+# scoping the trigger to them also means a push that only updates
+# docs/index.json can't retrigger this run.
 on:
   push:
     branches: [main]
     paths:
-      - "content/**"
+      - "Sites/**"
+      - "Signatures/**"
   workflow_dispatch: {}
 
 permissions:

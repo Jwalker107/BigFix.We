@@ -2,8 +2,9 @@ name: Validate BigFix content conventions
 description: >
   Runs three vendored pre-commit-bigfix checks (bes-conventions-check,
   bes-actionscript-lint-schclass, bes-actionscript-validate-prefetch) against
-  every *.bes file added or modified under content/Analysis, content/Fixlet,
-  or content/Task in the pull request that triggered the calling workflow.
+  every *.bes file added or modified anywhere beneath a "Fixlets" subdirectory
+  of any site under Sites/ (see README.md) in the pull request that triggered
+  the calling workflow.
   These are vendored, unmodified, from
   https://github.com/jgstew/pre-commit-bigfix - see
   scripts/pre_commit_bigfix/VENDORED.md for exactly what and why.
@@ -22,8 +23,8 @@ description: >
 #   - CRITICAL: the checker code itself (scripts/pre_commit_bigfix/**,
 #     scripts/requirements.txt) is extracted from the PR's *base* commit,
 #     NEVER from the PR's own tree (see "Extract the checker code" below). A
-#     PR touching content/ could otherwise also rewrite the very script that's
-#     about to grade it - weaken a check, or worse, since it's Python that
+#     PR touching Sites/*/Fixlets could otherwise also rewrite the very
+#     script that's about to grade it - weaken a check, or worse, since it's Python that
 #     this job runs, do anything at all inside the runner - and grade itself.
 #     Only the *.bes files under review ever come from the PR head; the code
 #     that reads them never does. The one narrow exception is the PR that
@@ -69,7 +70,7 @@ runs:
       shell: bash
       run: python -m pip install --disable-pip-version-check -r "$RUNNER_TEMP/validators/scripts/requirements.txt"
 
-    - name: List changed .bes files under content/Analysis, content/Fixlet, content/Task
+    - name: List changed .bes files under any Sites/*/Fixlets
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
@@ -86,9 +87,9 @@ runs:
         # NUL-separated so no filename (spaces, quotes, unicode, a leading
         # "-", ...) can be misread as extra shell tokens or tool options.
         # Unlike validate-content, this action only cares about *.bes files -
-        # anything else under these directories is out of scope for these
+        # anything else under Sites/*/Fixlets is out of scope for these
         # checks (validate-content owns the extension itself).
-        grep -E '^content/(Analysis|Fixlet|Task)/.*\.bes$' "$RUNNER_TEMP/changed-files-conv.txt" \
+        grep -E '^Sites/[^/]+/Fixlets/.*\.bes$' "$RUNNER_TEMP/changed-files-conv.txt" \
           | tr '\n' '\0' > "$RUNNER_TEMP/changed-files-conv.nul" || true
 
     - name: Run BES convention, ActionScript lint, and prefetch checks
@@ -100,7 +101,7 @@ runs:
         fail=0
 
         if [ ! -s "$RUNNER_TEMP/changed-files-conv.nul" ]; then
-          echo "No *.bes files under content/Analysis, content/Fixlet, or content/Task changed; nothing to check."
+          echo "No *.bes files under Sites/*/Fixlets changed; nothing to check."
           exit 0
         fi
 

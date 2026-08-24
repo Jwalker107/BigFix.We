@@ -1,7 +1,8 @@
 name: Validate BigFix Inventory Signatures against signature.xsd
 description: >
-  Validates every *.xml file added or modified under content/Signature (in
-  the pull request that triggered the calling workflow) against
+  Validates every *.xml file added or modified directly in the top-level
+  Signatures/ directory (not nested in a subdirectory - see README.md) in the
+  pull request that triggered the calling workflow, against
   scripts/signature.xsd.
 
 # Requires the repository to already be checked out at the pull request's
@@ -18,6 +19,10 @@ description: >
 #   - The schema is read from the pull request's *base* commit, not its own
 #     tree, so a PR can't rewrite scripts/signature.xsd to make its own
 #     malicious content "valid".
+#   - Signatures must be directly in Signatures/, not nested in a
+#     subdirectory (see README.md) - checked per-file below, separately from
+#     the extension check, so a nested file gets a clear, specific reason
+#     rather than silently falling through unchecked.
 #   - xmllint runs with --nonet (never fetch a DTD/entity over the network) and
 #     without --noent (entities are left unexpanded rather than substituted, so
 #     a billion-laughs-style entity bomb doesn't get expanded in memory), plus
@@ -46,7 +51,7 @@ runs:
         git fetch --no-tags --depth=1 origin "$BASE_SHA"
         git show "$BASE_SHA:scripts/signature.xsd" > "$RUNNER_TEMP/signature.xsd"
 
-    - name: List changed files under content/Signature
+    - name: List changed files under Signatures
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
@@ -61,8 +66,12 @@ runs:
           --jq '.[] | select(.status != "removed") | .filename' \
           > "$RUNNER_TEMP/changed-files-sig.txt"
 
-        # NUL-separated from here on - see the security note at the top of this file.
-        grep -E '^content/Signature/' "$RUNNER_TEMP/changed-files-sig.txt" \
+        # Broad match here (any depth under Signatures/) - the per-file loop
+        # below is what enforces "directly in Signatures/, not nested", so a
+        # nested file still gets seen and reported with a clear reason
+        # instead of silently never being looked at. NUL-separated from here
+        # on - see the security note at the top of this file.
+        grep -E '^Signatures/' "$RUNNER_TEMP/changed-files-sig.txt" \
           | tr '\n' '\0' > "$RUNNER_TEMP/changed-files-sig.nul" || true
 
     - name: Validate each changed file against signature.xsd
@@ -79,8 +88,8 @@ runs:
           checked=$((checked + 1))
 
           # Every remaining path is guaranteed (by the grep above) to start with
-          # "content/", so none of these checks can ever be tricked by a filename
-          # that looks like a flag.
+          # "Signatures/", so none of these checks can ever be tricked by a
+          # filename that looks like a flag.
 
           if [ -L "$file" ]; then
             printf 'FAIL  %s :: is a symlink, not a regular file\n' "$file"
@@ -92,6 +101,19 @@ runs:
             fail=1
             continue
           fi
+
+          # Must be a direct child of Signatures/ - no further subdirectory
+          # (see README.md). "${file#Signatures/}" strips exactly that
+          # prefix (guaranteed present by the grep above), so any "/" left in
+          # what remains means it's nested.
+          rest="${file#Signatures/}"
+          case "$rest" in
+            */*)
+              printf 'FAIL  %s :: Inventory Signatures must be directly in Signatures/, not nested in a subdirectory\n' "$file"
+              fail=1
+              continue
+              ;;
+          esac
 
           case "$file" in
             *.xml) ;;
@@ -123,5 +145,5 @@ runs:
         done < "$RUNNER_TEMP/changed-files-sig.nul"
 
         echo
-        echo "Checked $checked file(s) under content/Signature."
+        echo "Checked $checked file(s) under Signatures."
         exit "$fail"

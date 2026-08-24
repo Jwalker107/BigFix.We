@@ -25,7 +25,7 @@ on:
   pull_request:
     branches: [main]
     paths:
-      - "Sites/*/Fixlets"
+      - "Sites/*/Fixlets/**"
       - "Signatures/**"
 
 permissions:
@@ -52,10 +52,10 @@ jobs:
           # code with that credential in scope, so there's no untrusted step
           # that could read it out of .git/config.
 
-      - name: Validate content against BES.xsd (content/Analysis, content/Fixlet, content/Task)
+      - name: Validate content against BES.xsd (Sites/*/Fixlets)
         uses: ./.github/actions/validate-content
 
-      - name: Validate Signatures against signature.xsd (content/Signature)
+      - name: Validate Signatures against signature.xsd (Signatures)
         uses: ./.github/actions/validate-signatures
 
       - name: Validate BES conventions, ActionScript lint, and prefetch

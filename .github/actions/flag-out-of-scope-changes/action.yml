@@ -1,10 +1,11 @@
 name: Flag changes outside validated content directories
 description: >
   Scans the pull request that triggered the calling workflow for any created,
-  modified, deleted, or renamed file outside content/Analysis, content/Fixlet,
-  content/Task, and content/Signature. If any are found: submits a
-  REQUEST_CHANGES review, applies the needs-manual-review label (creating it
-  first if needed), and emits a warning annotation per out-of-scope file.
+  modified, deleted, or renamed file outside any Sites/*/Fixlets directory or
+  the top-level Signatures/ directory (see README.md). If any are found:
+  submits a REQUEST_CHANGES review, applies the needs-manual-review label
+  (creating it first if needed), and emits a warning annotation per
+  out-of-scope file.
 
 # This action itself never checks out anything and never reads or executes
 # any file CONTENT - only the PR's file-list METADATA (path, previous path,
@@ -77,8 +78,15 @@ runs:
         }
 
         in_scope() {
+          # Matches validate-content/validate-content-conventions' scope
+          # (anything beneath a "Fixlets" subdirectory of any site under
+          # Sites/) and validate-signatures' scope (anything under the
+          # top-level Signatures/, at any depth - validate-signatures itself
+          # is what enforces "directly in Signatures/, not nested"; a file
+          # that breaks that rule is still "in scope" here and gets a clear
+          # FAIL from that action instead of a generic manual-review flag).
           case "$1" in
-            content/Analysis/*|content/Fixlet/*|content/Task/*|content/Signature/*) return 0 ;;
+            Sites/*/Fixlets/*|Signatures/*) return 0 ;;
             *) return 1 ;;
           esac
         }
@@ -98,9 +106,9 @@ runs:
 
           flagged=$((flagged + 1))
           if [ -n "$previous" ]; then
-            message="This ${status} file (renamed from \"${previous}\") is outside content/Analysis, content/Fixlet, content/Task, and content/Signature, so it was not automatically validated and needs manual review."
+            message="This ${status} file (renamed from \"${previous}\") is outside every Sites/*/Fixlets directory and the top-level Signatures/ directory, so it was not automatically validated and needs manual review."
           else
-            message="This ${status} file is outside content/Analysis, content/Fixlet, content/Task, and content/Signature, so it was not automatically validated and needs manual review."
+            message="This ${status} file is outside every Sites/*/Fixlets directory and the top-level Signatures/ directory, so it was not automatically validated and needs manual review."
           fi
           echo "::warning file=$(escape_property "$filename"),line=1,col=1::$(escape_data "$message")"
         done < "$RUNNER_TEMP/changed-files.jsonl"

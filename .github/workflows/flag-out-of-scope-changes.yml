@@ -60,7 +60,7 @@ jobs:
           if [ "${{ steps.flag.outputs.flagged }}" != "0" ]; then
             echo "${{ steps.flag.outputs.flagged }} file(s) outside the validated content directories - requested changes and labeled needs-manual-review. A human must dismiss the review (and remove the label) after reviewing."
           else
-            echo "No changes outside content/Analysis, content/Fixlet, content/Task, or content/Signature."
+            echo "No changes outside any Sites/*/Fixlets directory or the top-level Signatures/ directory."
           fi
           # Always succeed: this workflow's effect is the review/label the
           # action above leaves behind, never its own pass/fail state. A

@@ -1,8 +1,10 @@
 name: Validate BigFix content against BES.xsd
 description: >
-  Validates every *.bes file added or modified under content/Analysis,
-  content/Fixlet, or content/Task (in the pull request that triggered the
-  calling workflow) against scripts/BES.xsd.
+  Validates every *.bes file added or modified anywhere beneath a "Fixlets"
+  subdirectory of any site under Sites/ (e.g.
+  Sites/<Site>/Fixlets/Tasks/Foo.bes, or directly in
+  Sites/<Site>/Fixlets/Foo.bes - see README.md) in the pull request that
+  triggered the calling workflow, against scripts/BES.xsd.
 
 # Requires the repository to already be checked out at the pull request's
 # HEAD commit (see the calling workflow) - this action does not check out
@@ -46,7 +48,7 @@ runs:
         git fetch --no-tags --depth=1 origin "$BASE_SHA"
         git show "$BASE_SHA:scripts/BES.xsd" > "$RUNNER_TEMP/BES.xsd"
 
-    - name: List changed files under content/Analysis, content/Fixlet, content/Task
+    - name: List changed files under any Sites/*/Fixlets
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
@@ -61,8 +63,12 @@ runs:
           --jq '.[] | select(.status != "removed") | .filename' \
           > "$RUNNER_TEMP/changed-files-bes.txt"
 
-        # NUL-separated from here on - see the security note at the top of this file.
-        grep -E '^content/(Analysis|Fixlet|Task)/' "$RUNNER_TEMP/changed-files-bes.txt" \
+        # "Sites/<one segment>/Fixlets/" then anything at all (any depth, or
+        # nothing further) - matches both Sites/<Site>/Fixlets/Foo.bes
+        # directly and Sites/<Site>/Fixlets/Tasks/Foo.bes nested one or more
+        # levels deep (see README.md). NUL-separated from here on - see the
+        # security note at the top of this file.
+        grep -E '^Sites/[^/]+/Fixlets/' "$RUNNER_TEMP/changed-files-bes.txt" \
           | tr '\n' '\0' > "$RUNNER_TEMP/changed-files-bes.nul" || true
 
     - name: Validate each changed file against BES.xsd
@@ -79,7 +85,7 @@ runs:
           checked=$((checked + 1))
 
           # Every remaining path is guaranteed (by the grep above) to start with
-          # "content/", so none of these checks can ever be tricked by a filename
+          # "Sites/", so none of these checks can ever be tricked by a filename
           # that looks like a flag.
 
           if [ -L "$file" ]; then
@@ -123,5 +129,5 @@ runs:
         done < "$RUNNER_TEMP/changed-files-bes.nul"
 
         echo
-        echo "Checked $checked file(s) under content/Analysis, content/Fixlet, content/Task."
+        echo "Checked $checked file(s) under Sites/*/Fixlets."
         exit "$fail"

@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 """
-Generate docs/index.json: a listing of every content/**/*.bes file (Fixlets,
-Tasks, Analyses, Baselines, ...) plus every content/Signature/*.xml file, with
+Generate docs/index.json: a listing of every Sites/**/*.bes file (Fixlets,
+Tasks, Analyses, Baselines, ...) plus every Signatures/*.xml file, with
 metadata parsed from its XML.
 
 GitHub Pages publishes the whole repo root (see index.html there), so
-content/ is already served as-is - this script does not copy or duplicate
-any .bes/.xml file. It only enumerates content/ and writes docs/index.json
-for the viewer's (index.html + docs/app.js) file list and search.
+Sites/ and Signatures/ are already served as-is - this script does not copy
+or duplicate any .bes/.xml file. It only enumerates them and writes
+docs/index.json for the viewer's (index.html + docs/app.js) file list and
+search.
 
 Run from the repo root:
     python scripts/generate_index.py
@@ -19,13 +20,13 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parent.parent
-SOURCE_ROOT = REPO_ROOT / "content"
-SIGNATURE_ROOT = SOURCE_ROOT / "Signature"
+SOURCE_ROOT = REPO_ROOT / "Sites"
+SIGNATURE_ROOT = REPO_ROOT / "Signatures"
 OUTPUT_PATH = REPO_ROOT / "docs" / "index.json"
 
 KNOWN_ROOT_TAGS = {"Task", "Fixlet", "Analysis", "Baseline", "TaskCondition", "ComputerGroup"}
 
-# Both .bes exports and content/Signature/*.xml files carry their metadata as
+# Both .bes exports and Signatures/*.xml files carry their metadata as
 # an XML comment "frontmatter" block before the real root element, e.g.:
 #   <!--
 #     ID       : 2994532
@@ -42,12 +43,12 @@ FRONTMATTER_FIELD_RE = re.compile(r"^([A-Za-z_][A-Za-z0-9_]*)\s*:\s*(.*)$")
 
 def find_source_bes_files():
     for path in sorted(SOURCE_ROOT.rglob("*.bes")):
-        yield path.relative_to(SOURCE_ROOT)
+        yield path.relative_to(REPO_ROOT)
 
 
 def find_source_signature_files():
     for path in sorted(SIGNATURE_ROOT.rglob("*.xml")):
-        yield path.relative_to(SOURCE_ROOT)
+        yield path.relative_to(REPO_ROOT)
 
 
 def child_text(el, tag):
@@ -61,7 +62,7 @@ def parse_frontmatter(abs_path: Path) -> dict[str, str]:
     """Parse the leading XML-comment frontmatter block into a dict of fields.
 
     Values may optionally be wrapped in double quotes (used by the
-    content/Signature/*.xml exports); surrounding quotes are stripped.
+    Signatures/*.xml exports); surrounding quotes are stripped.
     """
     try:
         text = abs_path.read_text(encoding="utf-8", errors="replace")
@@ -86,10 +87,12 @@ def parse_frontmatter(abs_path: Path) -> dict[str, str]:
 
 
 def base_entry(source_rel_path: Path):
-    # This file's path within the repo (content/ lives at the repo root) - doubles as
-    # docs/app.js's local fetch/download URL (relative to the published index.html, which
-    # lives at the repo root too) and, combined with BLOB_BASE there, the "View on GitHub" link.
-    rel_path = Path("content") / source_rel_path
+    # source_rel_path is already relative to the repo root (Sites/... or
+    # Signatures/... - see find_source_bes_files/find_source_signature_files
+    # above) - this doubles as docs/app.js's local fetch/download URL
+    # (relative to the published index.html, which lives at the repo root
+    # too) and, combined with BLOB_BASE there, the "View on GitHub" link.
+    rel_path = source_rel_path
     return {
         "path": rel_path.as_posix(),
         "name": rel_path.name,
@@ -112,7 +115,7 @@ def base_entry(source_rel_path: Path):
 
 
 def describe(source_rel_path: Path):
-    abs_path = SOURCE_ROOT / source_rel_path
+    abs_path = REPO_ROOT / source_rel_path
     entry = base_entry(source_rel_path)
     posix_path = entry["path"]
 
@@ -147,7 +150,7 @@ def describe(source_rel_path: Path):
 
 
 def describe_signature(source_rel_path: Path):
-    abs_path = SOURCE_ROOT / source_rel_path
+    abs_path = REPO_ROOT / source_rel_path
     entry = base_entry(source_rel_path)
     entry["type"] = "Signature"
 
