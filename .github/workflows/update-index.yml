@@ -15,8 +15,9 @@ on:
 permissions:
   contents: write
 
+# Cancel any running workflow on this same PR if a new commit is pushed
 concurrency:
-  group: update-index-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
   cancel-in-progress: true
 
 jobs:

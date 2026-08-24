@@ -15,34 +15,49 @@ The repository structure should follow standard BigFix Endpoint Manager (BES) Su
 - **`NonClientFiles/`**: Stores server-side assets, scripts, and metadata not deployed to endpoints.
 - **`OtherFiles/`**: Stores additional non-client site artifacts.
 
-SiteContent/
-├── Fixlets/
-│   ├── BigFix Management/
-│   │   ├── 1- Task1.bes
-│   │   └── 12- Fixlet1.bes
-│   │   
-│   └── Mac Software/
-│   │   └── 3- RebootTask.bes
-│   │
-│   └── Windows Software/
-│       └── 4- RebootTask.bes
-│   
-├── NonClientFiles/
-│   └── server_script.sh
-└── OthersFiles/
-    └── documentation.pdf
+Each 'Site' *may* contain a 'site.xml' with relevance clauses or evaluation periods defined for the site.
+Each directory beneath 'Fixlets' *may* contain a digest.xml with relevance clauses or evaluation periods that apply to all fixlets in that directory and child directories.
 
-BigFix Inventory Signatures/react-server-dom CVE-2025-55182,AFFECTED.xml
-BigFix Inventory Signatures/react-server-dom CVE-2025-55182,SAFE.xml
+Because 'Fixlets' commonly refers to any of (Fixlets, Tasks, Analyses), it is common for the top-level 'Fixlets' directory of any given site to be further divided into separate subdirectories by content type
 
-AI Skills/Relevance-Generator-Skill.md
-AI Skills/Product-Release-Detector-Skill.md
-AI Skills/Fixlet-Generator-Skill.md
-AI Skills/BigFix-Operator-Skill.md
+Sites/
+├──BigFix Management
+│   ├── Fixlets/
+│   │   ├── Analyses/
+│   │   │    └─ 13- Analysis1.bes
+│   │   ├── Fixlets/
+│   │   │    └─ 1- Fixlet1.bes
+│   │   └── Tasks/
+│   │        └─ 12- Task1.bes
+│   ├──NonClientFiles/
+│   │   └── server_script.sh
+│   └──NonClientFiles/
+│       └── documentation.pdf
+├──Mac Software
+│   ├── Fixlets/
+│   │   ├── 1- Fixlet1.bes
+│   │   └── 12- Fixlet2.bes
+│   ├──NonClientFiles/
+│   │   └── server_script.sh
+│   └──NonClientFiles/
+│       └── documentation.pdf
+└──Windows Software
+    ├── Fixlets/
+    │   ├── 1- Task1.bes
+    │   └── 12- Fixlet1.bes
+    ├──NonClientFiles/
+    │   └── server_script.sh
+    └──NonClientFiles/
+        └── documentation.pdf
+
+Signatures/
+├─react-server-dom CVE-2025-55182,AFFECTED.xml
+└─react-server-dom CVE-2025-55182,SAFE.xml
+
 ```
 
 ## Attribution
-For authorship attribution, if desired please include frontmatter in the content (for example, XML comments or Markdown frontmatter) embedded in the content itself; and/or, MIME fields in .bes content, provided that such tags are schema-conformant and do not interfere with the ability to import/export such content into a BigFix deployment.
+For authorship attribution, please include frontmatter in the content (for example, XML comments or Markdown frontmatter) embedded in the content itself; and/or, MIME fields in .bes content, provided that such tags are schema-conformant and do not interfere with the ability to import/export such content into a BigFix deployment.
 
 
 ## LEGAL AND LICENSE TERMS

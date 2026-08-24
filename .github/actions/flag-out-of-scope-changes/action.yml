@@ -1,0 +1,151 @@
+name: Flag changes outside validated content directories
+description: >
+  Scans the pull request that triggered the calling workflow for any created,
+  modified, deleted, or renamed file outside content/Analysis, content/Fixlet,
+  content/Task, and content/Signature. If any are found: submits a
+  REQUEST_CHANGES review, applies the needs-manual-review label (creating it
+  first if needed), and emits a warning annotation per out-of-scope file.
+
+# This action itself never checks out anything and never reads or executes
+# any file CONTENT - only the PR's file-list METADATA (path, previous path,
+# status) from the GitHub API. The calling workflow does still need a
+# checkout (so `uses: ./...` can resolve this action's own files at all) -
+# but it must take no `ref:` override, so it resolves to the BASE branch,
+# never the PR's own tree. That's what makes it safe for this action to run
+# with a write token even though it's invoked from a `pull_request_target`
+# workflow: the code that runs is always the already-reviewed version from
+# main, never whatever a malicious PR's own commit might have rewritten this
+# action to do.
+#
+# Every value taken from that metadata (a filename, a previous filename) is
+# attacker-controlled and is escaped per GitHub's own documented
+# `::workflow-command::` escaping rules before being echoed, so a filename
+# containing a literal newline, `%`, `:`, or `,` cannot inject a second,
+# spoofed annotation or otherwise be misread as workflow-command syntax (see
+# escape_property/escape_data below).
+#
+# This action always exits 0 - see its calling workflow's "Summary" step. Its
+# effect is entirely the review + label it leaves behind; a human must
+# explicitly dismiss the review (and remove the label) afterward, even once
+# a later push removes the out-of-scope change - this action never does
+# either automatically.
+#
+# Requires `pull-requests: write` and `issues: write` on the calling workflow.
+
+outputs:
+  flagged:
+    description: Number of changed files found outside the validated content directories
+    value: ${{ steps.scan.outputs.flagged }}
+
+runs:
+  using: composite
+  steps:
+    - name: List every changed file's path, previous path, and status
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        REPO: ${{ github.repository }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+      run: |
+        set -euo pipefail
+        gh api \
+          --paginate \
+          "repos/${REPO}/pulls/${PR_NUMBER}/files" \
+          --jq '.[] | {filename, previous_filename, status}' \
+          > "$RUNNER_TEMP/changed-files.jsonl"
+
+    - name: Find changes outside the validated content directories
+      id: scan
+      shell: bash
+      run: |
+        set -euo pipefail
+
+        # Per GitHub's documented `::workflow-command::` escaping rules
+        # (actions/toolkit's core/src/command.ts: escapeProperty/escapeData):
+        # order matters - '%' must be escaped first, or the '%' introduced
+        # by the other substitutions would itself get re-escaped.
+        escape_property() {
+          local s=$1
+          s=${s//%/%25}; s=${s//$'\r'/%0D}; s=${s//$'\n'/%0A}
+          s=${s//:/%3A}; s=${s//,/%2C}
+          printf '%s' "$s"
+        }
+        escape_data() {
+          local s=$1
+          s=${s//%/%25}; s=${s//$'\r'/%0D}; s=${s//$'\n'/%0A}
+          printf '%s' "$s"
+        }
+
+        in_scope() {
+          case "$1" in
+            content/Analysis/*|content/Fixlet/*|content/Task/*|content/Signature/*) return 0 ;;
+            *) return 1 ;;
+          esac
+        }
+
+        flagged=0
+        while IFS= read -r record; do
+          filename=$(jq -r '.filename' <<<"$record")
+          previous=$(jq -r '.previous_filename // empty' <<<"$record")
+          status=$(jq -r '.status' <<<"$record")
+
+          out_of_scope=0
+          in_scope "$filename" || out_of_scope=1
+          if [ -n "$previous" ]; then
+            in_scope "$previous" || out_of_scope=1
+          fi
+          [ "$out_of_scope" -eq 1 ] || continue
+
+          flagged=$((flagged + 1))
+          if [ -n "$previous" ]; then
+            message="This ${status} file (renamed from \"${previous}\") is outside content/Analysis, content/Fixlet, content/Task, and content/Signature, so it was not automatically validated and needs manual review."
+          else
+            message="This ${status} file is outside content/Analysis, content/Fixlet, content/Task, and content/Signature, so it was not automatically validated and needs manual review."
+          fi
+          echo "::warning file=$(escape_property "$filename"),line=1,col=1::$(escape_data "$message")"
+        done < "$RUNNER_TEMP/changed-files.jsonl"
+
+        echo "flagged=$flagged" >> "$GITHUB_OUTPUT"
+        echo "$flagged out-of-scope file(s) found."
+
+    - name: Ensure the needs-manual-review label exists
+      if: steps.scan.outputs.flagged != '0'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        REPO: ${{ github.repository }}
+      run: |
+        set -euo pipefail
+        if ! gh api "repos/${REPO}/labels/needs-manual-review" >/dev/null 2>&1; then
+          gh api --method POST "repos/${REPO}/labels" \
+            -f name="needs-manual-review" \
+            -f color="B60205" \
+            -f description="Touches files outside the automatically-validated content directories; needs a human reviewer's judgment." \
+            >/dev/null
+        fi
+
+    - name: Apply the needs-manual-review label
+      if: steps.scan.outputs.flagged != '0'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        REPO: ${{ github.repository }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+      run: |
+        set -euo pipefail
+        gh api --method POST "repos/${REPO}/issues/${PR_NUMBER}/labels" \
+          -f "labels[]=needs-manual-review" >/dev/null
+
+    - name: Request changes on the pull request
+      if: steps.scan.outputs.flagged != '0'
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        REPO: ${{ github.repository }}
+        PR_NUMBER: ${{ github.event.pull_request.number }}
+      run: |
+        set -euo pipefail
+        gh api --method POST "repos/${REPO}/pulls/${PR_NUMBER}/reviews" \
+          -f event="REQUEST_CHANGES" \
+          -f body="Modifications that require further human review" \
+          >/dev/null

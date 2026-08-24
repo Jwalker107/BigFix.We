@@ -1,0 +1,62 @@
+name: Validate pull request content
+
+# Runs the three content-validation checks against a pull request to main,
+# each now its own composite action under .github/actions/ (this workflow
+# just checks out the PR head once and calls them, in order):
+#   1. .github/actions/validate-content              - BES.xsd schema
+#   2. .github/actions/validate-signatures             - signature.xsd schema
+#   3. .github/actions/validate-content-conventions    - BES conventions,
+#      ActionScript lint, and prefetch checks
+#
+# The order of the three `uses:` steps below IS the execution order - reorder
+# them to change it. Steps run sequentially and stop at the first failing one
+# by default, so putting the cheapest/fastest check first (schema validation)
+# means an obviously-broken file fails fast before the heavier Python-based
+# conventions checks run.
+#
+# Deliberately triggered by plain `pull_request`, not `pull_request_target`:
+# every one of these actions checks out and inspects the PR's own untrusted
+# content (including from forks), and validate-content-conventions actually
+# executes Python against it. `pull_request` keeps the default token
+# read-only with no secrets for that - see each action's own file for its
+# full security rationale, most importantly that the *checker* code always
+# comes from the PR's base commit, never the PR's own tree.
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - "Sites/*/Fixlets"
+      - "Signatures/**"
+
+permissions:
+  contents: read
+  pull-requests: read
+
+# Cancel any running workflow on this same PR if a new commit is pushed
+concurrency:
+  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  cancel-in-progress: true
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout PR head
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          fetch-depth: 1
+          # Deliberately NOT persist-credentials: false - every action below
+          # reuses this same injected, read-only credential for its own
+          # `git fetch` of the PR base. Nothing here ever runs PR-provided
+          # code with that credential in scope, so there's no untrusted step
+          # that could read it out of .git/config.
+
+      - name: Validate content against BES.xsd (content/Analysis, content/Fixlet, content/Task)
+        uses: ./.github/actions/validate-content
+
+      - name: Validate Signatures against signature.xsd (content/Signature)
+        uses: ./.github/actions/validate-signatures
+
+      - name: Validate BES conventions, ActionScript lint, and prefetch
+        uses: ./.github/actions/validate-content-conventions
