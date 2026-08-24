@@ -185,11 +185,22 @@ runs:
       run: |
         set -euo pipefail
         if ! gh api "repos/${REPO}/labels/needs-manual-review" >/dev/null 2>&1; then
-          gh api --method POST "repos/${REPO}/labels" \
+          # GitHub caps a label's description at 100 characters and returns
+          # HTTP 422 Validation Failed (with no clearer message than that)
+          # if it's longer - keep this under that limit.
+          if ! gh api --method POST "repos/${REPO}/labels" \
             -f name="needs-manual-review" \
             -f color="B60205" \
-            -f description="Touches files outside the automatically-validated content directories; needs a human reviewer's judgment." \
-            >/dev/null
+            -f description="Touches files outside the automatically-validated content areas; needs human review." \
+            >/dev/null 2>&1; then
+            # Another PR's run of this same action may have created the
+            # label between our check above and this request - re-check
+            # before treating that race as a real failure.
+            if ! gh api "repos/${REPO}/labels/needs-manual-review" >/dev/null 2>&1; then
+              echo "::error::failed to create the needs-manual-review label" >&2
+              exit 1
+            fi
+          fi
         fi
 
     - name: Apply the needs-manual-review label
