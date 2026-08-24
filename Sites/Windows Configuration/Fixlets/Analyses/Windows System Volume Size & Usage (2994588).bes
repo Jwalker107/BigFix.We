@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="UTF-8"?>
 <!--
   BigFix Analysis Export
-  
+
   Title    : Windows System Volume Size & Usage
   ID       : 2994588
   Author   : JasonWalker
@@ -12,9 +12,9 @@
 <BES xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="BES.xsd">
   <Analysis>
     <Title>Windows System Volume Size &amp; Usage</Title>
-    <Description>This Analysis was created to determine the existance, size, and free space of the Windows System Volume.&amp;nbsp; Normally this is a dedicated partition with no drive letter assigned. </Description>
+    <Description><![CDATA[This Analysis was created to determine the existance, size, and free space of the Windows System Volume.&nbsp; Normally this is a dedicated partition with no drive letter assigned. ]]></Description>
     <Relevance>windows of operating system</Relevance>
-    <Relevance>version of operating system &gt;= &quot;6&quot;</Relevance>
+    <Relevance><![CDATA[version of operating system >= "6"]]></Relevance>
     <MIMEField>
       <Name>x-fixlet-modification-time</Name>
       <Value>Tue, 21 Oct 2013 20:59:36 +0000</Value>
