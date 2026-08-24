@@ -1,4 +1,4 @@
-name: Validate BigFix content conventions
+name: deprecated - Validate BigFix content conventions
 description: >
   Runs three vendored pre-commit-bigfix checks (bes-conventions-check,
   bes-actionscript-lint-schclass, bes-actionscript-validate-prefetch) against
@@ -97,7 +97,17 @@ runs:
       env:
         PYTHONPATH: ${{ runner.temp }}/validators/scripts
       run: |
-        set -uo pipefail  # NOT -e: every check below must run even if an earlier one fails
+        set -uo pipefail
+        # Composite-action steps run under `bash -e ...` from the runner
+        # itself - `set -uo pipefail` alone does NOT turn that off (only the
+        # options explicitly named to `set` change). It doesn't need to be
+        # here, though: every risky command below is a `cmd || fail=1` list,
+        # and a failure inside such a list is exempt from -e by definition -
+        # that's what actually lets every check run even if an earlier one
+        # fails. If a bare (non-`||`-guarded) command is ever added here, -e
+        # WILL abort the script on its first nonzero exit (see
+        # run-pre-commit-autofix's own version of this comment for the bug
+        # that produces).
         fail=0
 
         if [ ! -s "$RUNNER_TEMP/changed-files-conv.nul" ]; then
