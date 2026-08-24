@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="UTF-8"?>
 <!--
   BigFix Analysis Export
-  
+
   Title    : BigFix Client - Evaluation Cycle
   ID       : 2998690
   Author   : JasonWalker
@@ -12,11 +12,11 @@
 <BES xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="BES.xsd">
   <Analysis>
     <Title>BigFix Client - Evaluation Cycle</Title>
-    <Description>
-&lt;P&gt;This analysis provides detailed information on the BigFix Client Evaluation Cycle.&lt;/P&gt;
+    <Description><![CDATA[
+<P>This analysis provides detailed information on the BigFix Client Evaluation Cycle.</P>
 Based on prior work from jgstew at https://bigfix.me/analysis/details/2994765 and strawgate at https://bigfix.me/analysis/details/2998424
-</Description>
-    <Relevance>version of client &gt; &quot;8.0&quot; and (if exists property &quot;in proxy agent context&quot; then not in proxy agent context else true)</Relevance>
+]]></Description>
+    <Relevance><![CDATA[version of client > "8.0" and (if exists property "in proxy agent context" then not in proxy agent context else true)]]></Relevance>
     <Domain>BESC</Domain>
     <Property ID="1" Name="Client Evaluation - Average Cycle" EvaluationPeriod="PT6H">relative significance place 1 of (average of evaluationcycle of client as floating point / 1000 / 60)</Property>
     <Property ID="2" Name="Client Evaluation - Max Cycle" EvaluationPeriod="PT6H">((maximum of it /1000* second)/minute) of evaluationcycle of client</Property>
