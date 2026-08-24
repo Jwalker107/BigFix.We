@@ -37,11 +37,21 @@ jobs:
   update-index:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+     
+      # 1. Generate the GitHub App Token
+      - name: Generate token
+        id: generate-token  
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.CICD_APP_ID }}
+          private-key: ${{ secrets.CICD_APP_PRIVATE_KEY }}
+
+      # 2. Checkout the code using the generated token
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
           ref: ${{ github.ref_name }}
-
+          token: ${{ steps.generate-token.outputs.token }}
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
