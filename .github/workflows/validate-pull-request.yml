@@ -1,4 +1,4 @@
-name: Validate pull request content
+name: pull-request schema validation
 
 # Runs the four content-validation checks against a pull request to main,
 # each now its own composite action under .github/actions/ (this workflow
@@ -46,7 +46,7 @@ permissions:
 # Cancel any running workflow on this same PR if a new commit is pushed
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   validate:
@@ -72,6 +72,3 @@ jobs:
       - name: Validate Signatures against signature.xsd (Signatures)
         uses: ./.github/actions/validate-signatures
 
-        # moved into pre-commit
-      # - name: Validate BES conventions, ActionScript lint, and prefetch
-      #   uses: ./.github/actions/validate-content-conventions
