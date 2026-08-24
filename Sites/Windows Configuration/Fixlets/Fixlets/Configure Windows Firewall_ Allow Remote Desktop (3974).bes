@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="UTF-8"?>
 <!--
   BigFix Fixlet Export
-  
+
   Title    : Configure Windows Firewall: Allow Remote Desktop
   ID       : 3974
   Author   : JasonWalker
@@ -12,11 +12,11 @@
 <BES xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="BES.xsd">
   <Fixlet>
     <Title>Configure Windows Firewall: Allow Remote Desktop</Title>
-    <Description>&lt;P&gt;Enables the &quot;Remote Desktop&quot; firewall group.&amp;nbsp; Requires at least Windows Vista and an active Firewall to be relevant. &lt;/P&gt;
-&lt;P&gt;NOTE: This is Relevant if the current state of &quot;Remote Desktop&quot; is disabled; but the fixlet only changes the local configuration.&amp;nbsp; If the firewall rule set is controlled through Group Policy, this fixlet does not override.&lt;/P&gt;</Description>
+    <Description><![CDATA[<P>Enables the "Remote Desktop" firewall group.&nbsp; Requires at least Windows Vista and an active Firewall to be relevant. </P>
+<P>NOTE: This is Relevant if the current state of "Remote Desktop" is disabled; but the fixlet only changes the local configuration.&nbsp; If the firewall rule set is controlled through Group Policy, this fixlet does not override.</P>]]></Description>
     <Relevance>windows of operating system</Relevance>
     <Relevance>if exists property &quot;in proxy agent context&quot; then not in proxy agent context else true</Relevance>
-    <Relevance>version of operating system &gt;= &quot;6&quot; as version</Relevance>
+    <Relevance><![CDATA[version of operating system >= "6" as version]]></Relevance>
     <Relevance>exists firewall whose (firewall enabled of current profile of local policy of firewall)</Relevance>
     <Relevance>not rule group currently enabled &quot;Remote Desktop&quot; of firewall</Relevance>
     <Source>Internal</Source>

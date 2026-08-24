@@ -1,7 +1,7 @@
 ﻿<?xml version="1.0" encoding="UTF-8"?>
 <!--
   BigFix Analysis Export
-  
+
   Title    : TSM Backup Audit - Windows
   ID       : 94
   Author   : JasonWalker
@@ -12,12 +12,12 @@
 <BES xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="BES.xsd">
   <Analysis>
     <Title>TSM Backup Audit - Windows</Title>
-    <Description>See &lt;A HREF=&quot;http://bigfix.me/analysis/details/2994716&quot;&gt;http://bigfix.me/analysis/details/2994716&lt;/A&gt; for a later, more dynamic, but much more complex version of this analysis. In the newer version I dynamically locate TSM services, DSM.OPT files, and dsmsched.log files, and get more result details out of the logs. I also check for a dsmsched.log.bak file if the dsmsched.log is locked and unreadable.
+    <Description><![CDATA[See <A HREF="http://bigfix.me/analysis/details/2994716">http://bigfix.me/analysis/details/2994716</A> for a later, more dynamic, but much more complex version of this analysis. In the newer version I dynamically locate TSM services, DSM.OPT files, and dsmsched.log files, and get more result details out of the logs. I also check for a dsmsched.log.bak file if the dsmsched.log is locked and unreadable.
 
-&lt;P&gt;Report on Windows TSM Statuses.&lt;/P&gt;
-&lt;P&gt;Taken with thanks from JGStew at bigfix.me&lt;/P&gt;
-&lt;P&gt;Learn more about this analysis online: &lt;A href=&quot;http://bigfix.me/cdb/analysis/62&quot;&gt;http://bigfix.me/cdb/analysis/62&lt;/A&gt;&lt;BR&gt;&lt;/P&gt;
-&lt;P&gt;Customized slightly by Jason Walker, 2013-04-22; added TSM Client Acceptor to services list for relevance; fixed some issues with tabs and comments (&quot;*&quot;) and trimming the results.&lt;BR&gt;&lt;/P&gt;</Description>
+<P>Report on Windows TSM Statuses.</P>
+<P>Taken with thanks from JGStew at bigfix.me</P>
+<P>Learn more about this analysis online: <A href="http://bigfix.me/cdb/analysis/62">http://bigfix.me/cdb/analysis/62</A><BR></P>
+<P>Customized slightly by Jason Walker, 2013-04-22; added TSM Client Acceptor to services list for relevance; fixed some issues with tabs and comments ("*") and trimming the results.<BR></P>]]></Description>
     <Relevance>windows of operating system</Relevance>
     <Relevance>(exists key whose(&quot;IBM Tivoli Storage Manager Client&quot; = value &quot;DisplayName&quot; of it) of key &quot;HKEY_LOCAL_MACHINE\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall&quot; of native registry) OR (exists file &quot;C:\Program Files\Tivoli\TSM\baclient\dsmsched.log&quot;) OR (exists file &quot;C:\Program Files\Tivoli\TSM\baclient\tsmstats.ini&quot;) OR (exists file &quot;C:\Program Files\Tivoli\TSM\baclient\dsm.opt&quot;) OR (exists file &quot;C:\Program Files\Tivoli\TSM\baclient\dsmcrash.log&quot;) OR (exists file &quot;C:\Program Files\Tivoli\TSM\baclient\dsm.exe&quot;) OR (exists service &quot;TSM Scheduler Service&quot;) OR (exists service &quot;TSM Client Acceptor&quot;)</Relevance>
     <MIMEField>
