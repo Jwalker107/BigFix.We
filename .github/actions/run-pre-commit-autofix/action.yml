@@ -174,21 +174,11 @@ runs:
       env:
         HEAD_REF: ${{ github.event.pull_request.head.ref }}
       run: |
-        set -euo pipefail
+        set -uo pipefail  # NOT -e: pre-commit's own nonzero exits (a fix was applied, or an issue was found) are expected outcomes handled explicitly below, not script errors to abort on
         mapfile -d '' files < "$RUNNER_TEMP/changed-files.nul"
 
-        # Composite-action steps run under `bash -e ...` from the runner
-        # itself, and `pre-commit run` returning nonzero (a hook applied a
-        # fix, or found an issue) is an expected outcome here, not a script
-        # error - but that's exactly the situation -e exists to abort on. A
-        # command as part of a `||`/`if` list is exempt from -e by
-        # definition, so guarding each pre-commit call this way is what lets
-        # the rest of the script - the commit/push, and pass 2 - still run
-        # afterward, while -e stays ON for everything else (git
-        # config/add/commit/push below): if one of THOSE fails for a real
-        # reason, the job needs to fail loudly, not silently lose the fix.
         echo "::group::pre-commit (pass 1 - hooks may apply fixes here)"
-        pre-commit run --config "$RUNNER_TEMP/pre-commit-config.trusted.yaml" --files "${files[@]}" || true
+        pre-commit run --config "$RUNNER_TEMP/pre-commit-config.trusted.yaml" --files "${files[@]}"
         echo "::endgroup::"
 
         fixed=0
@@ -203,11 +193,8 @@ runs:
         echo "fixed=$fixed" >> "$GITHUB_OUTPUT"
 
         echo "::group::pre-commit (pass 2 - confirms whether anything unfixable remains)"
-        if pre-commit run --config "$RUNNER_TEMP/pre-commit-config.trusted.yaml" --files "${files[@]}"; then
-          clean_exit=0
-        else
-          clean_exit=1
-        fi
+        pre-commit run --config "$RUNNER_TEMP/pre-commit-config.trusted.yaml" --files "${files[@]}"
+        clean_exit=$?
         echo "::endgroup::"
 
         if [ "$clean_exit" -eq 0 ]; then
