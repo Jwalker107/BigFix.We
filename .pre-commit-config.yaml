@@ -51,5 +51,5 @@ repos:
       - id: bes-conventions-check
         args: ["--auto-fix=yes", "--errors-only"]
       - id: bes-actionscript-lint-schclass
-        args: ["--strict"]
+        args: ["--auto-fix=yes", "--errors-only", "--strict"]
       - id: bes-actionscript-validate-prefetch
