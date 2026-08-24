@@ -72,5 +72,6 @@ jobs:
       - name: Validate Signatures against signature.xsd (Signatures)
         uses: ./.github/actions/validate-signatures
 
-      - name: Validate BES conventions, ActionScript lint, and prefetch
-        uses: ./.github/actions/validate-content-conventions
+        # moved into pre-commit
+      # - name: Validate BES conventions, ActionScript lint, and prefetch
+      #   uses: ./.github/actions/validate-content-conventions
