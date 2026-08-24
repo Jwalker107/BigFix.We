@@ -53,3 +53,20 @@ repos:
       - id: bes-actionscript-lint-schclass
         args: ["--strict"]
       - id: bes-actionscript-validate-prefetch
+
+  # A local fork https://github.com/mxab/pre-commit-trivy.git
+  # to support scanning the filesystem for known vulnerabilities or misplaced secrets
+
+  - repo: https://github.com/Jwalker107/pre-commit-trivy.git
+    rev: v0.72.0
+    hooks:
+      - id: trivyfs-docker
+        args:
+          - --skip-dirs
+          - ./tests
+          - . # last arg indicates the path/file to scan
+      - id: trivyconfig-docker
+        args:
+          - --skip-dirs
+          - ./tests
+          - . # last arg indicates the path/file to scan
