@@ -49,5 +49,7 @@ repos:
     rev: 477019be8f87f09c71079d38d12b998abc63d358 # v0.6.1
     hooks:
       - id: bes-conventions-check
+        args: ["--auto-fix=yes", "--errors-only"]
       - id: bes-actionscript-lint-schclass
+        args: ["--auto-fix=yes", "--errors-only", "--strict"]
       - id: bes-actionscript-validate-prefetch
