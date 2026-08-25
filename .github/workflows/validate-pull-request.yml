@@ -82,4 +82,3 @@ jobs:
 
       - name: Validate Signatures against signature.xsd (Signatures)
         uses: ./.github/actions/validate-signatures
-
