@@ -27,6 +27,7 @@ on:
 
 permissions:
   contents: write
+  pull-requests: read
 
 # Cancel any running workflow on this same PR if a new commit is pushed
 concurrency:
@@ -56,8 +57,33 @@ jobs:
         with:
           python-version: "3.x"
 
+      # This workflow runs on `push`, deliberately (see the top of this
+      # file), so there is no github.event.pull_request here to read a label
+      # from directly. This maps the push's own commit back to the pull
+      # request it came from instead - the GitHub API for this is
+      # squash/rebase-merge-aware, so it still finds the right PR even though
+      # the commit on main isn't the PR head's own SHA. Empty/no result
+      # (a direct push, or workflow_dispatch against an arbitrary ref) is
+      # treated the same as "no opt-out label": IDs are assigned normally.
+      - name: Check whether the merged PR has 'keep-content-ids'
+        id: check_label
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          labels=$(gh api "repos/${REPO}/commits/${SHA}/pulls" --jq '.[].labels[].name' 2>/dev/null || true)
+          if grep -qx "keep-content-ids" <<<"$labels"; then
+            echo "Found 'keep-content-ids' on the merged pull request; skipping content-ID assignment."
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Assign content IDs to new .bes files
         id: assign_ids
+        if: steps.check_label.outputs.skip != 'true'
         run: |
           set -euo pipefail
           contentid_path="scripts/contentid.json"
@@ -131,6 +157,7 @@ jobs:
           fi
 
       - name: Regenerate docs/index.json
+        id: regenerate_index
         run: python scripts/generate_index.py
 
       - name: Commit and push if changed
@@ -154,7 +181,10 @@ jobs:
           git push origin HEAD:${{ github.ref_name }}
 
       - name: Fail if any collisions occurred
-        if: steps.assign_ids.outputs.collisions != '0'
+        # steps.assign_ids.outputs.collisions is empty (not '0') when
+        # assign_ids was skipped via 'keep-content-ids' above - guard against
+        # that explicitly, since '' != '0' would otherwise be true too.
+        if: steps.assign_ids.outputs.collisions != '' && steps.assign_ids.outputs.collisions != '0'
         run: |
           echo "::error::${{ steps.assign_ids.outputs.collisions }} file(s) could not be assigned a content ID due to a filename collision. Whatever else succeeded above was still committed and pushed; the colliding file(s) need manual attention." >&2
           exit 1
