@@ -34,6 +34,10 @@ name: pull-request schema validation
 # comes from the PR's base commit, never the PR's own tree.
 on:
   pull_request:
+    # labeled/unlabeled (beyond the default opened/synchronize/reopened) so
+    # toggling 'keep-content-ids' on an already-open PR, with no new commit,
+    # still re-runs this and updates the check_filenames result below.
+    types: [opened, synchronize, reopened, labeled, unlabeled]
     branches: [main]
     paths:
       - "Sites/*/Fixlets/**"
@@ -50,6 +54,7 @@ concurrency:
 
 jobs:
   validate:
+    name: Validate BigFix content filenames and schema conformance
     runs-on: ubuntu-latest
     steps:
       - name: Checkout PR head
@@ -64,6 +69,12 @@ jobs:
           # that could read it out of .git/config.
 
       - name: Reject non-alphabetic leading characters on new .bes filenames
+        id: check_filenames
+        # 'keep-content-ids' means update-index.yml will leave this PR's new
+        # .bes files exactly as named instead of assigning them a fresh
+        # integer-ID prefix - so a leading digit here isn't a future
+        # collision with that scheme, it's the point of the label.
+        if: ${{ !contains(github.event.pull_request.labels.*.name, 'keep-content-ids') }}
         uses: ./.github/actions/validate-new-content-filenames
 
       - name: Validate content against BES.xsd (Sites/*/Fixlets)
