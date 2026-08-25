@@ -40,7 +40,7 @@ jobs:
     steps:
       # 1. Generate the GitHub App Token
       - name: Generate token
-        id: generate-token 
+        id: generate-token
         uses: actions/create-github-app-token@v1
         with:
           app-id: ${{ secrets.CICD_APP_ID }}
