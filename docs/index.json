@@ -20,6 +20,25 @@
       "keywords": ""
     },
     {
+      "path": "Sites/BigFix Management/Fixlets/Analyses/12-AD OUs - Active Directory Info - Windows & Mac.bes",
+      "name": "12-AD OUs - Active Directory Info - Windows & Mac.bes",
+      "dir": "Sites/BigFix Management/Fixlets/Analyses",
+      "type": "Analysis",
+      "title": "AD OUs - Active Directory Info - Windows & Mac",
+      "source": "",
+      "sourceReleaseDate": "",
+      "severity": "",
+      "domain": "BESC",
+      "downloadSize": "",
+      "relevanceCount": 2,
+      "author": "jgstew",
+      "id": "2998380",
+      "publisher": "",
+      "productName": "",
+      "release": "",
+      "keywords": ""
+    },
+    {
       "path": "Sites/Linux Security/Fixlets/Analyses/2-Apache Commons Text Scan Analysis.bes",
       "name": "2-Apache Commons Text Scan Analysis.bes",
       "dir": "Sites/Linux Security/Fixlets/Analyses",
