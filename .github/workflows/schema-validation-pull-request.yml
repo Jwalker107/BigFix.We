@@ -53,7 +53,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  validate:
+  schema-validation:
     name: Validate BigFix content filenames and schema conformance
     runs-on: ubuntu-latest
     steps:

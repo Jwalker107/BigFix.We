@@ -45,15 +45,15 @@ repos:
   # xmllint (see .github/actions/validate-content), so adding this hook's
   # own validate_bes_xml-based check here would just be a second, possibly
   # inconsistent, schema check.
-  #- repo: https://github.com/jgstew/pre-commit-bigfix
-  - repo: https://github.com/Jwalker107/pre-commit-bigfix
-    rev: v0.6.2-pre
+  - repo: https://github.com/jgstew/pre-commit-bigfix
+    rev: 4b42e9a408867442663b9920165972cd8ddf5b7d # v1.0.1
     hooks:
       - id: bes-conventions-check
         args: ["--auto-fix=yes", "--errors-only"]
       - id: bes-actionscript-lint-schclass
         args: ["--strict"]
       - id: bes-actionscript-validate-prefetch
+      - id: bes-actionscript-validate-script
 
   # A local fork https://github.com/mxab/pre-commit-trivy.git
   # to support scanning the filesystem for known vulnerabilities or misplaced secrets
