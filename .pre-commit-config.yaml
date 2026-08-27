@@ -46,7 +46,7 @@ repos:
   # own validate_bes_xml-based check here would just be a second, possibly
   # inconsistent, schema check.
   - repo: https://github.com/jgstew/pre-commit-bigfix
-    rev: 4b42e9a408867442663b9920165972cd8ddf5b7d # v1.0.1 
+    rev: 4b42e9a408867442663b9920165972cd8ddf5b7d # v1.0.1
     hooks:
       - id: bes-conventions-check
         args: ["--auto-fix=yes", "--errors-only"]

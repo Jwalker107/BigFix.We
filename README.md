@@ -35,7 +35,7 @@ Sites/
 │   ├── ...
 └──Windows Software
     └── ...
-       
+
 Signatures/
 ├─react-server-dom CVE-2025-55182,AFFECTED.xml
 └─react-server-dom CVE-2025-55182,SAFE.xml
@@ -52,7 +52,7 @@ If you regularly make contributions, we strongly encourage the use of the [pre-c
 
 When submitting Pull Requests (see below), you may observe that several Github Actions run to validate your ssubmissions.  These validations are an aid to human review of your PR.  If any of the actions are marked with a Fail, it may be useful to review the action log and determine whether it is something that you can fix and resubmit (common issues include 'end-of-file-fixer' check, which expects a newline character at the end of the file; and 'trailing-whitespace', which gives an error if any line ends with unexpected spaces).  Some automatic fixes from pre-commit may not work in a Github Actions context (especially as your working branch may be a 'fork' into which our action cannot write); the curator team will review your submissions and determine whether we can merge, or ask you for changes before merging.
 
-In addition to the syntax checks, all Fixlets/Tasks/Analyses and Inventory Signatures are validated against their reference XML schemas.  
+In addition to the syntax checks, all Fixlets/Tasks/Analyses and Inventory Signatures are validated against their reference XML schemas.
 
 ## Pull Requests
 This repository is meant for collaboration, and your submissions are critical to making this resource worthwhile.  We encourage you to use standard git concepts like branches, forks, and pull-request to submit content.  We do ask that we all try to maintain a reasonable Sites structure to divide content by areas of interest (such as 'BigFix Management', 'Windows Configuration', 'Linux Configuration', etc.).  We recognize that some content may be cross-platform and may not fit cleanly into these categories; we may create new categories in Sites and encourage you to do the same when necessary for clarity.
@@ -65,5 +65,3 @@ This repository used Github Pages to provide an interactive content browser.  Yo
 
 ## LEGAL AND LICENSE TERMS
 Submissions migrated from https://bigfix.me are generally licensed under the terms of the [Creative Commons Attribute-ShareAlike 3.0 license](https://creativecommons.org/licenses/by-sa/3.0/legalcode.txt).  Modifications or submissions updated in this repository after the initial port are updated to the [Creative Commons Attribute-ShareAlike 4.0 license](https://creativecommons.org/licenses/by-sa/4.0/legalcode.txt) as defined at [LICENSE](LICENSE)
-
-
