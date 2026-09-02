@@ -1,8 +1,11 @@
-# Dependencies for scripts/pre_commit_bigfix/ (see VENDORED.md there). Mirrors
-# the install_requires pins from jgstew/pre-commit-bigfix's setup.cfg for the
-# three hooks vendored here. bes_schema_validate.py's own `validate_bes_xml`
-# dependency is intentionally NOT listed - that hook was not vendored, since
-# this repo validates BES.xsd separately (see .github/workflows/validate-content.yml).
+# Dependencies for scripts/pre_commit_bigfix/ (see VENDORED.md there - as of
+# this writing, that directory is NOT read by anything in this repo's own
+# actions/workflows; this file exists only because that directory does).
+# Mirrors the install_requires pins from jgstew/pre-commit-bigfix's setup.cfg
+# for the three hooks vendored there. bes_schema_validate.py's own
+# `validate_bes_xml` dependency is intentionally NOT listed - that hook was
+# not vendored, since this repo validates BES.xsd separately (see
+# .github/actions/validate-content).
 lxml
 # 1.1.5 is where bigfix_prefetch.prefetch.add_sha256_prefetch() arrived, which
 # bes_actionscript_validate_prefetch.py's --auto-fix-network calls (kept

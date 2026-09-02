@@ -30,9 +30,12 @@ repos:
       - id: check-added-large-files
 
   # BigFix-specific content checks - the same hooks this repo's own CI runs
-  # (see scripts/pre_commit_bigfix/VENDORED.md and
-  # .github/actions/validate-content-conventions), so a contributor sees the
-  # same feedback locally, before ever pushing. Unlike CI, these are left at
+  # via .github/actions/run-pre-commit-autofix (.github/workflows/pre-commit-autofix.yml),
+  # so a contributor sees the same feedback locally, before ever pushing.
+  # (scripts/pre_commit_bigfix/ is a leftover vendored copy from this repo's
+  # sibling project and is not what CI actually runs here - CI invokes these
+  # hooks the normal pre-commit way, straight from the pinned repo/rev below.)
+  # Unlike CI, these are left at
   # their own default here (no --auto-fix=no): pre-commit always passes the
   # staged files explicitly, and bes-conventions-check /
   # bes-actionscript-validate-prefetch both default --auto-fix to "yes" in
