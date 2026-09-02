@@ -54,6 +54,8 @@ When submitting Pull Requests (see below), you may observe that several Github A
 
 In addition to the syntax checks, all Fixlets/Tasks/Analyses and Inventory Signatures are validated against their reference XML schemas.
 
+Any pull request that touches something beneath `Sites/` is also scanned for download commands (`prefetch`, `add prefetch item`, `download`, `curl`, `wget`, etc.) inside each Fixlet/Task's ActionScript. If a download URL doesn't match one of the patterns in the repository's `known_urls.txt`, the pull request is labeled `new-download-url` and a maintainer is asked to confirm the URL before adding a matching pattern to `known_urls.txt`.
+
 ## Pull Requests
 This repository is meant for collaboration, and your submissions are critical to making this resource worthwhile.  We encourage you to use standard git concepts like branches, forks, and pull-request to submit content.  We do ask that we all try to maintain a reasonable Sites structure to divide content by areas of interest (such as 'BigFix Management', 'Windows Configuration', 'Linux Configuration', etc.).  We recognize that some content may be cross-platform and may not fit cleanly into these categories; we may create new categories in Sites and encourage you to do the same when necessary for clarity.
 
