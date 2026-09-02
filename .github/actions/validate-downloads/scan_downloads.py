@@ -15,49 +15,28 @@ Every *.bes file named in FILES_LIST is read via `git show <HEAD_SHA>:<path>`
 (never from the working tree, which under this action's intended caller holds
 the PR base, not head) and treated purely as data: parsed as XML with
 xml.etree.ElementTree, then each <ActionScript> body is scanned line-by-line
-for a download command. See action.yml for the full security rationale.
+for a download command - see .github/actions/_lib/bes_downloads.py (shared
+with validate-downloads-virustotal) for exactly what counts as one. See
+action.yml for the full security rationale.
 
 Exits 0 always - this script's effect is the `flagged` output and the warning
 annotations it prints; action.yml decides what to do with them.
 """
 
 import os
+import pathlib
 import re
 import subprocess
 import sys
-import xml.etree.ElementTree as ET
+
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent.parent / "_lib"))
+import bes_downloads as bd  # noqa: E402 - see sys.path.insert above
 
 HEAD_SHA = os.environ["HEAD_SHA"]
 FILES_LIST = os.environ["FILES_LIST"]
 KNOWN_URLS_PATH = os.environ.get("KNOWN_URLS_PATH", "known_urls.txt")
 MAX_BYTES = int(os.environ.get("MAX_BYTES", "10485760"))
 GITHUB_OUTPUT = os.environ["GITHUB_OUTPUT"]
-
-# Per GitHub's documented `::workflow-command::` escaping rules
-# (actions/toolkit's core/src/command.ts: escapeProperty/escapeData): order
-# matters - '%' must be escaped first, or the '%' introduced by the other
-# substitutions would itself get re-escaped.
-
-
-def escape_property(s):
-    s = s.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
-    s = s.replace(":", "%3A").replace(",", "%2C")
-    return s
-
-
-def escape_data(s):
-    return s.replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
-
-
-def warn(message, file=None, line=None):
-    props = []
-    if file is not None:
-        props.append(f"file={escape_property(file)}")
-    if line is not None:
-        props.append(f"line={line}")
-    prefix = f"::warning {','.join(props)}::" if props else "::warning::"
-    print(f"{prefix}{escape_data(message)}")
-
 
 # --- Load known-URL patterns -------------------------------------------------
 
@@ -71,14 +50,14 @@ if os.path.isfile(KNOWN_URLS_PATH):
             try:
                 patterns.append(re.compile(line))
             except re.error as err:
-                warn(
+                bd.warn(
                     f"ignoring invalid regex on line {lineno} of {KNOWN_URLS_PATH} "
                     f"({err}): {line}",
                     file=KNOWN_URLS_PATH,
                     line=lineno,
                 )
 else:
-    warn(
+    bd.warn(
         f"{KNOWN_URLS_PATH} not found on the PR base; every download URL "
         "will be treated as unrecognized"
     )
@@ -86,59 +65,6 @@ else:
 
 def is_known(url):
     return any(p.fullmatch(url) for p in patterns)
-
-
-# --- ActionScript scanning ---------------------------------------------------
-
-# A generic absolute-URI token: scheme://rest-with-no-whitespace-or-quoting.
-URL_RE = re.compile(r"""[A-Za-z][A-Za-z0-9+.\-]*://[^\s"'<>]+""")
-
-
-def clean_url(u):
-    """Strip trailing punctuation a URL token likely picked up from prose/syntax."""
-    return u.rstrip(").,;:'\"")
-
-
-# BigFix's own download syntax ("prefetch ...", "add prefetch item ...",
-# "add nohash prefetch item ...") plus "download"/"download now" and the two
-# third-party downloaders BigFix content commonly shells out to.
-DOWNLOAD_KEYWORDS_RE = re.compile(r"\bdownload(\s+now)?\b|\bcurl\b|\bwget\b", re.IGNORECASE)
-
-
-def is_download_line(lowered_stripped):
-    if "prefetch item" in lowered_stripped:  # covers both add/add nohash forms
-        return True
-    if lowered_stripped.startswith("prefetch "):
-        return True
-    return bool(DOWNLOAD_KEYWORDS_RE.search(lowered_stripped))
-
-
-# The raw content of a `createfile until <MARKER>` block is file text being
-# written out, not ActionScript commands - a prefetch/curl/wget-looking line
-# in there isn't a command at all, so lines between the two markers are
-# skipped, same judgement bes_actionscript_validate_prefetch.py makes.
-HEREDOC_START_RE = re.compile(r"^createfile\s+until\s+(\S+)\s*$", re.IGNORECASE)
-
-
-def find_download_urls(actionscript_text):
-    """Yield URLs from download-command lines in one ActionScript body."""
-    heredoc_end = None
-    for raw_line in actionscript_text.replace("\r\n", "\n").replace("\r", "\n").split("\n"):
-        stripped = raw_line.strip()
-        if heredoc_end is not None:
-            if stripped == heredoc_end:
-                heredoc_end = None
-            continue
-        start = HEREDOC_START_RE.match(stripped)
-        if start:
-            heredoc_end = start.group(1)
-            continue
-        if not stripped or stripped.startswith("//"):
-            continue
-        if not is_download_line(stripped.lower()):
-            continue
-        for match in URL_RE.findall(stripped):
-            yield clean_url(match)
 
 
 # --- Main ---------------------------------------------------------------
@@ -155,47 +81,41 @@ for path in files:
     checked += 1
 
     try:
-        result = subprocess.run(
-            ["git", "show", f"{HEAD_SHA}:{path}"],
-            check=True,
-            capture_output=True,
-        )
+        content = bd.read_git_show(HEAD_SHA, path)
     except subprocess.CalledProcessError as err:
         stderr = err.stderr.decode("utf-8", errors="replace")[:500]
-        warn(f"could not read PR-head content ({stderr}); skipping", file=path)
+        bd.warn(f"could not read PR-head content ({stderr}); skipping", file=path)
         continue
-    content = result.stdout
 
     if len(content) > MAX_BYTES:
-        warn(
+        bd.warn(
             f"{len(content)} bytes exceeds the {MAX_BYTES} byte download-scan limit; skipping",
             file=path,
         )
         continue
 
     try:
-        root = ET.fromstring(content)
-    except ET.ParseError as err:
+        urls = list(bd.iter_bes_download_urls(content))
+    except bd.ET.ParseError as err:
         # Not this check's job to fail on invalid XML - validate-content
         # (BES.xsd) already owns that; just skip so this check stays focused.
-        warn(f"not parseable BES XML ({err}); skipping", file=path)
+        bd.warn(f"not parseable BES XML ({err}); skipping", file=path)
         continue
 
     seen_in_file = set()
-    for element in root.iter("ActionScript"):
-        for url in find_download_urls(element.text or ""):
-            if url in seen_in_file or is_known(url):
-                continue
-            seen_in_file.add(url)
-            flagged += 1
-            warn(
-                f'references a download URL that does not match any pattern in '
-                f'{KNOWN_URLS_PATH}: "{url}". Please confirm this URL is legitimate, '
-                f'then ask a maintainer to add a matching pattern to {KNOWN_URLS_PATH} '
-                "before merging.",
-                file=path,
-                line=1,
-            )
+    for url in urls:
+        if url in seen_in_file or is_known(url):
+            continue
+        seen_in_file.add(url)
+        flagged += 1
+        bd.warn(
+            f'references a download URL that does not match any pattern in '
+            f'{KNOWN_URLS_PATH}: "{url}". Please confirm this URL is legitimate, '
+            f'then ask a maintainer to add a matching pattern to {KNOWN_URLS_PATH} '
+            "before merging.",
+            file=path,
+            line=1,
+        )
 
 with open(GITHUB_OUTPUT, "a", encoding="utf-8") as fh:
     fh.write(f"flagged={flagged}\n")
