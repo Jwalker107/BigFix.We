@@ -2,13 +2,15 @@ name: Flag changes outside validated content directories
 description: >
   Scans the pull request that triggered the calling workflow for any created,
   modified, deleted, or renamed file outside any Sites/*/Fixlets directory or
-  the top-level Signatures/ directory (see README.md) - with one narrow
-  exception: a modification to scripts/contentid.json that only changes its
-  "nextid" integer (see the leniency check below) is treated as in scope,
-  since that's exactly what .github/actions/assign-content-ids's own commits
-  do. If anything else out of scope is found: submits a REQUEST_CHANGES
-  review, applies the needs-manual-review label (creating it first if
-  needed), and emits a warning annotation per out-of-scope file.
+  the top-level Signatures/ directory (see README.md), and for any file
+  *inside* one of those directories whose name doesn't have the extension
+  that directory expects (.bes under Sites/*/Fixlets, .xml under Signatures/)
+  - with one narrow exception: a modification to scripts/contentid.json that
+  only changes its "nextid" integer (see the leniency check below) is treated
+  as in scope, since that's exactly what .github/actions/assign-content-ids's
+  own commits do. If anything else out of scope is found: submits a
+  REQUEST_CHANGES review, applies the needs-manual-review label (creating it
+  first if needed), and emits a warning annotation per out-of-scope file.
 
 # This action itself never checks out anything and, with one narrow
 # exception, never reads or executes any file CONTENT - only the PR's
@@ -100,17 +102,38 @@ runs:
           printf '%s' "$s"
         }
 
-        in_scope() {
-          # Matches validate-content/validate-content-conventions' scope
-          # (anything beneath a "Fixlets" subdirectory of any site under
-          # Sites/) and validate-signatures' scope (anything under the
-          # top-level Signatures/, at any depth - validate-signatures itself
-          # is what enforces "directly in Signatures/, not nested"; a file
-          # that breaks that rule is still "in scope" here and gets a clear
-          # FAIL from that action instead of a generic manual-review flag).
+        # Prints nothing and returns 0 if $1 is in scope. Otherwise prints a
+        # human-readable reason and returns 1. Directory matching mirrors
+        # validate-content/validate-content-conventions' scope (anything
+        # beneath a "Fixlets" subdirectory of any site under Sites/) and
+        # validate-signatures' scope (anything under the top-level
+        # Signatures/, at any depth - validate-signatures itself is what
+        # enforces "directly in Signatures/, not nested"; a file that breaks
+        # that rule still has the right extension and is left for that
+        # action's own FAIL rather than being flagged again here). On top of
+        # the directory match, a file within either directory must also
+        # carry the extension that directory's own validation expects
+        # (validate-content only ever looks at *.bes; validate-signatures
+        # only ever looks at *.xml) - anything else there would silently
+        # never be validated by either check, so it's out of scope too.
+        scope_reason() {
           case "$1" in
-            Sites/*/Fixlets/*|Signatures/*) return 0 ;;
-            *) return 1 ;;
+            Sites/*/Fixlets/*)
+              case "$1" in
+                *.bes) return 0 ;;
+                *) printf '%s' 'is under a Sites/*/Fixlets directory but does not end in ".bes"'; return 1 ;;
+              esac
+              ;;
+            Signatures/*)
+              case "$1" in
+                *.xml) return 0 ;;
+                *) printf '%s' 'is under the top-level Signatures/ directory but does not end in ".xml"'; return 1 ;;
+              esac
+              ;;
+            *)
+              printf '%s' 'is outside every Sites/*/Fixlets directory and the top-level Signatures/ directory'
+              return 1
+              ;;
           esac
         }
 
@@ -157,18 +180,25 @@ runs:
             continue
           fi
 
-          out_of_scope=0
-          in_scope "$filename" || out_of_scope=1
+          filename_reason=$(scope_reason "$filename") || true
+          previous_reason=""
           if [ -n "$previous" ]; then
-            in_scope "$previous" || out_of_scope=1
+            previous_reason=$(scope_reason "$previous") || true
           fi
-          [ "$out_of_scope" -eq 1 ] || continue
+          [ -n "$filename_reason" ] || [ -n "$previous_reason" ] || continue
 
           flagged=$((flagged + 1))
+
+          # Prefer explaining the current path's own problem; fall back to
+          # the previous path's if only that one was out of scope (e.g. a
+          # rename that moves a file INTO a valid, correctly-named location).
+          reason="$filename_reason"
+          [ -n "$reason" ] || reason="$previous_reason"
+
           if [ -n "$previous" ]; then
-            message="This ${status} file (renamed from \"${previous}\") is outside every Sites/*/Fixlets directory and the top-level Signatures/ directory, so it was not automatically validated and needs manual review."
+            message="This ${status} file (renamed from \"${previous}\") ${reason}, so it was not automatically validated and needs manual review."
           else
-            message="This ${status} file is outside every Sites/*/Fixlets directory and the top-level Signatures/ directory, so it was not automatically validated and needs manual review."
+            message="This ${status} file ${reason}, so it was not automatically validated and needs manual review."
           fi
           echo "::warning file=$(escape_property "$filename"),line=1,col=1::$(escape_data "$message")"
         done < "$RUNNER_TEMP/changed-files.jsonl"
