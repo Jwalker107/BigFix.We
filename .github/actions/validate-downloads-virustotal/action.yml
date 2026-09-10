@@ -38,9 +38,11 @@ description: >
 #   - A malicious pull request naming an unusually large number of download
 #     URLs cannot exhaust VirusTotal's daily quota or make this job run
 #     unreasonably long: scan_and_submit.py caps how many distinct URLs one
-#     run submits (see its own MAX_URLS_PER_RUN) and throttles submissions to
-#     stay under the public API's per-minute limit, logging (never silently
-#     dropping) anything past the cap.
+#     run submits (via --max-urls-per-run, set from the max-urls-per-run
+#     input below - the script itself defaults to no limit, so this input is
+#     what actually keeps that protection in place) and throttles submissions
+#     to stay under the public API's per-minute limit, logging (never
+#     silently dropping) anything past the cap.
 #   - The pull-request COMMENT BODY is built entirely server-side from
 #     VirusTotal's own JSON responses and this repo's file paths/URLs -
 #     nothing in it is arbitrary attacker-supplied HTML/script: it's plain
@@ -67,6 +69,16 @@ inputs:
   virustotal-api-key:
     description: VirusTotal API key (pass `${{ secrets.VIRUSTOTAL_API_KEY }}` from the calling workflow)
     required: true
+  max-urls-per-run:
+    description: >
+      Maximum number of distinct download URLs to submit to VirusTotal in one
+      run; any URL beyond this is listed in the PR comment as "not scanned"
+      rather than submitted. Passed straight through to scan_and_submit.py's
+      --max-urls-per-run, which itself defaults to no limit - leave this
+      input at its default to keep the per-run cap that protects against a
+      pull request naming an unusually large number of download URLs.
+    required: false
+    default: "15"
 
 outputs:
   malicious:
@@ -110,12 +122,17 @@ runs:
         MAX_BYTES: "10485760" # 10 MiB - matches validate-downloads' cap
         VIRUSTOTAL_API_KEY: ${{ inputs.virustotal-api-key }}
         COMMENT_BODY_PATH: ${{ runner.temp }}/vt-comment-body.md
+        MAX_URLS_PER_RUN: ${{ inputs.max-urls-per-run }}
       run: |
         set -euo pipefail
-        # Generous outer timeout: up to 15 URLs, each up to ~2 minutes of
-        # polling plus ~16s submission throttling - comfortably under 30
-        # minutes even in the worst case, with room to spare.
-        timeout 1800s python3 "${{ github.action_path }}/scan_and_submit.py"
+        # Generous outer timeout: with the default cap of 15 URLs, each up to
+        # ~2 minutes of polling plus ~16s submission throttling, this is
+        # comfortably under 30 minutes with room to spare. Raising
+        # max-urls-per-run (or leaving it unset in scan_and_submit.py, whose
+        # own default is no limit) scales the run time roughly linearly with
+        # URL count, so this timeout may need raising too if this input is
+        # ever set higher than its default.
+        timeout 1800s python3 "${{ github.action_path }}/scan_and_submit.py" --max-urls-per-run "$MAX_URLS_PER_RUN"
 
     - name: Find an existing VirusTotal status comment to update
       id: find_comment
