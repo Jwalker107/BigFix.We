@@ -4,11 +4,20 @@ description: >
   subdirectory of any site under Sites/ (e.g.
   Sites/<Site>/Fixlets/Tasks/Foo.bes, or directly in
   Sites/<Site>/Fixlets/Foo.bes - see README.md) in the pull request that
-  triggered the calling workflow, against scripts/BES.xsd.
+  triggered the calling workflow, against BES.xsd.
 
 # Requires the repository to already be checked out at the pull request's
 # HEAD commit (see the calling workflow) - this action does not check out
 # anything itself, so it can share one checkout with sibling actions.
+#
+# This action ships its own bundled copy of the schema (BES.xsd, alongside
+# this file) so it's self-contained: it never hardcodes a path specific to
+# this repo's own layout (like "scripts/BES.xsd"), so the whole action
+# directory can be copied as-is into another repository and it'll validate
+# against its own bundled schema there too. scripts/BES.xsd in this repo is
+# a manually-synced mirror of the bundled copy, kept only for other tooling/
+# humans that point at it (e.g. .pre-commit-config.yaml's comment) - it is
+# NOT read by this action.
 #
 # Security posture - PR content (including from forks) is untrusted input:
 #   - Intended to be called only from a `pull_request`-triggered workflow (never
@@ -17,9 +26,20 @@ description: >
 #     make this action fail/time out - it can't gain write access or
 #     exfiltrate anything. The calling workflow's `permissions:` must grant at
 #     least `contents: read` and `pull-requests: read`.
-#   - The schema is read from the pull request's *base* commit, not its own
-#     tree, so a PR can't rewrite scripts/BES.xsd to make its own malicious
-#     content "valid".
+#   - When called via a local `uses: ./...` reference (this repo's normal
+#     usage), this action's own files - including its bundled BES.xsd - are
+#     part of the very tree being checked out for the PR, which under this
+#     action's `pull_request` (not `pull_request_target`) caller is the PR's
+#     own HEAD, not its base. So the fetch step below resolves this action's
+#     own directory *relative to the repo root* and overwrites the bundled
+#     copy with that same relative path's content as of the PR base commit -
+#     a PR still can't rewrite its own copy of BES.xsd to make its own
+#     malicious content "valid", without hardcoding where in a repo this
+#     action happens to live. If this action is instead referenced from
+#     another repository entirely (`uses: owner/repo@ref`), that lookup
+#     simply finds nothing (the path doesn't exist in the repo under test)
+#     and this action falls back to the bundled copy as pinned by that ref -
+#     already immune to the PR's own tree, since it isn't part of it.
 #   - xmllint runs with --nonet (never fetch a DTD/entity over the network) and
 #     without --noent (entities are left unexpanded rather than substituted, so
 #     a billion-laughs-style entity bomb doesn't get expanded in memory), plus
@@ -39,14 +59,38 @@ runs:
         sudo apt-get update -qq
         sudo apt-get install -y --no-install-recommends libxml2-utils
 
-    - name: Fetch scripts/BES.xsd as of the PR base (not the PR's own copy)
+    - name: Fetch this action's own BES.xsd as of the PR base (not the PR's own copy)
       shell: bash
       env:
         BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        ACTION_PATH: ${{ github.action_path }}
       run: |
         set -euo pipefail
         git fetch --no-tags --depth=1 origin "$BASE_SHA"
-        git show "$BASE_SHA:scripts/BES.xsd" > "$RUNNER_TEMP/BES.xsd"
+
+        # This action's own path *relative to the repo root* - deliberately
+        # not a hardcoded "scripts/BES.xsd", so this still works if this
+        # action directory is copied into another repository at some other
+        # path. Only meaningful when this action lives inside the repo being
+        # validated (a local `uses: ./...` reference); see this file's header.
+        # `rev-parse --show-prefix`, run with cwd inside the action directory,
+        # asks git directly instead of comparing two independently-obtained
+        # absolute paths (which can disagree in representation, e.g. drive
+        # letter casing/slash style on Windows).
+        action_rel="$(git -C "$ACTION_PATH" rev-parse --show-prefix)"
+        action_rel="${action_rel%/}"
+
+        if git show "$BASE_SHA:$action_rel/BES.xsd" > "$ACTION_PATH/BES.xsd.base" 2>/dev/null; then
+          mv "$ACTION_PATH/BES.xsd.base" "$ACTION_PATH/BES.xsd"
+        else
+          # No BES.xsd at that path as of the PR base - either this action
+          # was only just added in this same PR, or it's referenced from
+          # outside this repo entirely (`uses: owner/repo@ref`), where the
+          # bundled copy is already pinned by that ref, not part of this
+          # repo's own tree at all. Keep whatever's already checked out.
+          rm -f "$ACTION_PATH/BES.xsd.base"
+          echo "Using this action's already-checked-out BES.xsd (none found at $action_rel/BES.xsd as of the PR base)."
+        fi
 
     - name: List changed files under any Sites/*/Fixlets
       shell: bash
@@ -77,7 +121,7 @@ runs:
         MAX_BYTES: "10485760" # 10 MiB - generous for a .bes export, small enough to bound parse cost
       run: |
         set -euo pipefail
-        schema="$RUNNER_TEMP/BES.xsd"
+        schema="${{ github.action_path }}/BES.xsd"
         fail=0
         checked=0
 
@@ -116,7 +160,7 @@ runs:
           fi
 
           if ! output=$(timeout 30s xmllint --nonet --noout --schema "$schema" "$file" 2>&1); then
-            printf 'FAIL  %s :: does not validate against scripts/BES.xsd\n' "$file"
+            printf 'FAIL  %s :: does not validate against BES.xsd\n' "$file"
             # Cap xmllint's own error text so a file crafted to produce a huge
             # error stream can't flood the job log.
             printf '%s\n' "$output" | head -c 4000

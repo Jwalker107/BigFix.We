@@ -2,7 +2,7 @@ name: Scan download URLs with VirusTotal
 description: >
   Extracts every download URL (prefetch/add prefetch item/add nohash prefetch
   item/download/download now/curl/wget - the same detection logic as
-  .github/actions/validate-downloads, shared via .github/actions/_lib) from
+  .github/actions/validate-download-allowlist, shared via .github/actions/_lib) from
   every *.bes file added or modified under any Sites/*/Fixlets directory in
   the pull request that triggered the calling workflow, submits each one to
   VirusTotal's public API, waits for a verdict, and posts (or updates) a
@@ -13,7 +13,7 @@ description: >
 
 # This action itself never checks out anything and never executes any byte of
 # PR content - every *.bes file is read once (via `git show <PR head
-# SHA>:<path>`, the same technique validate-downloads and
+# SHA>:<path>`, the same technique validate-download-allowlist and
 # flag-out-of-scope-changes use) and treated purely as data: parsed as XML
 # text, scanned with plain regexes (see .github/actions/_lib/bes_downloads.py)
 # to pull out URLs, which are then handed to VirusTotal - a third party -
@@ -23,7 +23,7 @@ description: >
 # Security posture - PR content (including from forks) is untrusted input,
 # and this action needs both a WRITE token (to comment, label, and review)
 # and a SECRET (the VirusTotal API key), which raises the stakes the same way
-# it does for flag-out-of-scope-changes and validate-downloads:
+# it does for flag-out-of-scope-changes and validate-download-allowlist:
 #   - Intended to be called only from a `pull_request_target`-triggered
 #     workflow whose checkout takes NO `ref:` override, so it resolves to the
 #     BASE branch. The code that runs (this file, scan_and_submit.py,
@@ -119,7 +119,7 @@ runs:
       env:
         HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         FILES_LIST: ${{ runner.temp }}/changed-files-vt.nul
-        MAX_BYTES: "10485760" # 10 MiB - matches validate-downloads' cap
+        MAX_BYTES: "10485760" # 10 MiB - matches validate-download-allowlist's cap
         VIRUSTOTAL_API_KEY: ${{ inputs.virustotal-api-key }}
         COMMENT_BODY_PATH: ${{ runner.temp }}/vt-comment-body.md
         MAX_URLS_PER_RUN: ${{ inputs.max-urls-per-run }}

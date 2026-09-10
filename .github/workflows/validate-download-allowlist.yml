@@ -1,10 +1,11 @@
-name: Flag unrecognized download URLs
+name: Flag download URLs not in the allowlist
 
-# Thin caller for .github/actions/validate-downloads - see that action's own
-# file for the full design (what counts as a download command, how URLs are
-# extracted from ActionScript, why known_urls.txt is read from the PR base,
-# and why this never executes any byte of PR content). This workflow supplies
-# only the trigger and the permissions/token the action needs.
+# Thin caller for .github/actions/validate-download-allowlist - see that
+# action's own file for the full design (what counts as a download command,
+# how URLs are extracted from ActionScript, why known_urls.txt is read from
+# the PR base, and why this never executes any byte of PR content). This
+# workflow supplies only the trigger and the permissions/token the action
+# needs.
 #
 # Runs on any pull request touching Sites/** (not just Sites/*/Fixlets/**),
 # matching the ask that this fire whenever a PR contains any content beneath
@@ -53,7 +54,7 @@ permissions:
   issues: write
 
 jobs:
-  validate-downloads:
+  validate-download-allowlist:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout the base branch (never the PR's own tree)
@@ -63,7 +64,7 @@ jobs:
 
       - name: Scan the pull request for unrecognized download URLs
         id: validate
-        uses: ./.github/actions/validate-downloads
+        uses: ./.github/actions/validate-download-allowlist
 
       - name: Summary
         if: always()

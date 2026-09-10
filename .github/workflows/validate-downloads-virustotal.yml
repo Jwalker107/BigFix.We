@@ -7,11 +7,11 @@ name: Scan download URLs with VirusTotal
 # supplies only the trigger, the permissions/token, and the VirusTotal API
 # key secret the action needs.
 #
-# Same trigger shape as validate-downloads.yml (Sites/** paths, so it also
-# fires on a PR touching non-Fixlets content beneath Sites/ - the action
+# Same trigger shape as validate-download-allowlist.yml (Sites/** paths, so it
+# also fires on a PR touching non-Fixlets content beneath Sites/ - the action
 # narrows down to *.bes files under a Fixlets directory once it looks at what
 # changed) and the same `pull_request_target` reasoning as
-# flag-out-of-scope-changes.yml / validate-downloads.yml: commenting,
+# flag-out-of-scope-changes.yml / validate-download-allowlist.yml: commenting,
 # labeling, and reviewing all need a WRITE token, which a fork PR's default
 # GITHUB_TOKEN is forced to lack under plain `pull_request`.
 #

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Shared BigFix ActionScript download-URL logic.
 
-Used by both .github/actions/validate-downloads (known_urls.txt allowlist
-check) and .github/actions/validate-downloads-virustotal (VirusTotal scan) so
+Used by both .github/actions/validate-download-allowlist (known_urls.txt
+allowlist check) and .github/actions/validate-downloads-virustotal (VirusTotal
+scan) so
 "what counts as a download command" and "how a URL is pulled out of one" is
 defined exactly once, in exactly one place, for both checks.
 
@@ -130,7 +131,7 @@ def iter_bes_download_urls(content):
 
     Raises xml.etree.ElementTree.ParseError if `content` isn't parseable XML;
     callers decide how to report that (both current callers skip the file and
-    emit a warning - BES.xsd schema validity is validate-content's job, not
+    emit a warning - BES.xsd schema validity is validate-bes-xsd's job, not
     this module's).
     """
     root = ET.fromstring(content)

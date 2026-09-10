@@ -6,8 +6,8 @@ name: pull-request schema validation
 #   1. .github/actions/validate-new-content-filenames - rejects any NEW .bes
 #      file, anywhere in the repo, whose name doesn't start with a plain
 #      letter (see that action's own file for the two reasons why)
-#   2. .github/actions/validate-content               - BES.xsd schema
-#   3. .github/actions/validate-signatures             - signature.xsd schema
+#   2. .github/actions/validate-bes-xsd                - BES.xsd schema
+#   3. .github/actions/validate-signatures-xsd         - signature.xsd schema
 #   4. .github/actions/validate-content-conventions    - BES conventions,
 #      ActionScript lint, and prefetch checks
 #
@@ -78,7 +78,7 @@ jobs:
         uses: ./.github/actions/validate-new-content-filenames
 
       - name: Validate content against BES.xsd (Sites/*/Fixlets)
-        uses: ./.github/actions/validate-content
+        uses: ./.github/actions/validate-bes-xsd
 
       - name: Validate Signatures against signature.xsd (Signatures)
-        uses: ./.github/actions/validate-signatures
+        uses: ./.github/actions/validate-signatures-xsd

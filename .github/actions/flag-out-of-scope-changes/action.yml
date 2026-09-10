@@ -101,11 +101,11 @@ runs:
         }
 
         in_scope() {
-          # Matches validate-content/validate-content-conventions' scope
+          # Matches validate-bes-xsd/validate-content-conventions' scope
           # (anything beneath a "Fixlets" subdirectory of any site under
-          # Sites/) and validate-signatures' scope (anything under the
-          # top-level Signatures/, at any depth - validate-signatures itself
-          # is what enforces "directly in Signatures/, not nested"; a file
+          # Sites/) and validate-signatures-xsd's scope (anything under the
+          # top-level Signatures/, at any depth - validate-signatures-xsd
+          # itself is what enforces "directly in Signatures/, not nested"; a file
           # that breaks that rule is still "in scope" here and gets a clear
           # FAIL from that action instead of a generic manual-review flag).
           case "$1" in

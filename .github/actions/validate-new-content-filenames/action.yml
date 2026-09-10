@@ -22,7 +22,7 @@ description: >
 # a file), but because it runs alongside sibling actions that share one
 # checkout in the same job.
 #
-# Security posture - matches validate-content/validate-signatures:
+# Security posture - matches validate-bes-xsd/validate-signatures-xsd:
 #   - Intended to be called only from a `pull_request`-triggered workflow
 #     (never `pull_request_target`): the default token is then read-only,
 #     with no repository secrets. The calling workflow's `permissions:` must
