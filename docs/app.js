@@ -7,43 +7,68 @@
  * localContentUrl below). Auto-detects owner/repo when this page is served
  * as a normal GitHub Pages project site (https://<owner>.github.io/<repo>/...),
  * so a fork of this repo links back to itself instead of the upstream repo.
+ * The defaults used otherwise (e.g. enterprise/local hosting) come from
+ * docs/config.json, so they can be changed per-deployment without touching
+ * this file. If that fetch fails, FALLBACK_CONFIG keeps the app usable.
  * ------------------------------------------------------------------- */
-const DEFAULT_OWNER = "Jwalker107";
-const DEFAULT_REPO = "BigFix.We";
-const DEFAULT_BRANCH = "refs/heads/main"; /* default 'main' for public github.com */
-const GITHUB_SITE="github.com";
+const CONFIG_URL = "docs/config.json";
+const FALLBACK_CONFIG = {
+  defaultOwner: "Jason-Walker",
+  defaultRepo: "BigFix.We",
+  defaultBranch: "refs/heads/main", // default 'main' for public github.com
+  githubSite: "github01.hclpnp.com",
+};
 
-function detectRepoConfig() {
-  const host = location.hostname; // e.g. bigfix.github.io
-  const parts = location.pathname.split("/").filter(Boolean); // e.g. ["Sites", "docs", ...]
-  const ghPagesMatch = host.match(/^([^.]+)\.github\.io$/);
-  if (ghPagesMatch && parts.length > 0) {
-    return { owner: ghPagesMatch[1], repo: parts[0], branch: DEFAULT_BRANCH };
+async function loadConfig() {
+  try {
+    const res = await fetch(CONFIG_URL);
+    if (!res.ok) throw new Error(`Could not load config.json (${res.status})`);
+    return await res.json();
+  } catch (err) {
+    console.warn(`${CONFIG_URL} unavailable, using built-in defaults:`, err);
+    return FALLBACK_CONFIG;
   }
-  return { owner: DEFAULT_OWNER, repo: DEFAULT_REPO, branch: DEFAULT_BRANCH };
 }
 
-const REPO = detectRepoConfig();
-const BLOB_BASE = `https://${GITHUB_SITE}/${REPO.owner}/${REPO.repo}/blob/${REPO.branch}/`;
+function detectRepoConfig(config) {
+  const host = location.hostname; // e.g. bigfix.github.io
+  const parts = location.pathname.split("/").filter(Boolean); // e.g. ["content", "docs", ...]
+  const ghPagesMatch = host.match(/^([^.]+)\.github\.io$/);
+  if (ghPagesMatch && parts.length > 0) {
+    return { owner: ghPagesMatch[1], repo: parts[0], branch: config.defaultBranch };
+  }
+  return { owner: config.defaultOwner, repo: config.defaultRepo, branch: config.defaultBranch };
+}
+
+let GITHUB_SITE;
+let REPO;
+let BLOB_BASE;
+
+const repoLinkEl = document.getElementById("repo-link");
+
+async function initConfig() {
+  const config = await loadConfig();
+  GITHUB_SITE = config.githubSite;
+  REPO = detectRepoConfig(config);
+  BLOB_BASE = `https://${GITHUB_SITE}/${REPO.owner}/${REPO.repo}/blob/${REPO.branch}/`;
+  repoLinkEl.href = `https://${GITHUB_SITE}/${REPO.owner}/${REPO.repo}`;
+  repoLinkEl.textContent = `${GITHUB_SITE}/${REPO.owner}/${REPO.repo}`;
+}
+
 // docs/index.json is generated (scripts/generate_index.py) but never moved or duplicated -
-// this page now lives at the repo root (alongside Sites/ and Signatures/), and index.json
-// is fetched from where it actually sits, in docs/. Also sidesteps the GitHub REST API's
+// this page now lives at the repo root (alongside content/), and index.json is fetched
+// from where it actually sits, in docs/. Also sidesteps the GitHub REST API's
 // unauthenticated rate limit the way the old git/trees call would have hit.
 const INDEX_URL = "docs/index.json";
 
-const repoLinkEl = document.getElementById("repo-link");
-repoLinkEl.href = `https://${GITHUB_SITE}/${REPO.owner}/${REPO.repo}`;
-repoLinkEl.textContent = `${GITHUB_SITE}/${REPO.owner}/${REPO.repo}`;
-
 /* ---------------------------------------------------------------------
  * Local content fetch
- * Every entry's `path` in index.json (e.g.
- * "Sites/BigFix Management/Fixlets/Fixlets/Foo.bes" or
- * "Signatures/Foo.xml") is both its location in the source repo (for the
- * "View on GitHub" link above) and a path relative to this page - which,
- * since GitHub Pages publishes the whole repo root, resolves directly to
- * the real file. No copy of the .bes/.xml files is kept anywhere; the
- * viewer just never calls back to GitHub to show or download one.
+ * Every entry's `path` in index.json (e.g. "content/Analyses/Foo.bes") is
+ * both its location in the source repo (for the "View on GitHub" link
+ * above) and a path relative to this page - which, since GitHub Pages
+ * publishes the whole repo root, resolves directly to the real content/
+ * file. No copy of the .bes files is kept anywhere; the viewer just never
+ * calls back to GitHub to show or download one.
  * ------------------------------------------------------------------- */
 function localContentUrl(path) {
   return path.split("/").map(encodeURIComponent).join("/");
@@ -68,6 +93,32 @@ collapseAllBtn.addEventListener("click", () => {
 
 sidebarHideBtn.addEventListener("click", () => layoutEl.classList.add("sidebar-hidden"));
 sidebarShowBtn.addEventListener("click", () => layoutEl.classList.remove("sidebar-hidden"));
+
+/* ---------------------------------------------------------------------
+ * Theme (light/dark)
+ * The initial theme (saved choice, else OS preference) is already applied
+ * before this script runs - see the inline snippet in index.html's <head>,
+ * which sets data-theme early enough to avoid a flash of the wrong theme.
+ * This just wires up the toggle button to flip and persist it.
+ * ------------------------------------------------------------------- */
+const THEME_STORAGE_KEY = "bigfix-theme";
+const themeToggleBtn = document.getElementById("theme-toggle-btn");
+
+function currentTheme() {
+  const explicit = document.documentElement.getAttribute("data-theme");
+  if (explicit === "light" || explicit === "dark") return explicit;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+}
+
+themeToggleBtn.addEventListener("click", () => {
+  const next = currentTheme() === "dark" ? "light" : "dark";
+  document.documentElement.setAttribute("data-theme", next);
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, next);
+  } catch (e) {
+    // Private-browsing/blocked storage: theme still applies for this load, just isn't remembered.
+  }
+});
 
 /* ---------------------------------------------------------------------
  * File list loading
@@ -103,17 +154,15 @@ async function loadFileList(forceRefresh) {
  * Sidebar tree rendering + filtering
  * ------------------------------------------------------------------- */
 
-// Builds a nested directory tree from each file's `dir` (e.g.
-// "Sites/BigFix Management/Fixlets/Fixlets" or "Signatures"). Unlike the
-// single-root "content/" layout this replaced, there's no one common leading
-// segment every entry lives under - "Sites" and "Signatures" are both
-// legitimate, distinct top-level areas - so the full `dir` is kept as-is; a
-// file with no directory at all (dir "(root)") lands on the tree root with no
-// group wrapper.
+// Builds a nested directory tree from each file's `dir` (e.g. "content/Analysis/BES"),
+// dropping the leading "content" segment - every entry lives under it, so showing it
+// on every group would just be noise. A file directly in "content/" itself (dir
+// "(root)") lands on the tree root with no group wrapper.
 function buildTree(files) {
   const root = { name: "", path: "", children: new Map(), files: [] };
   for (const f of files) {
     let segments = f.dir === "(root)" ? [] : f.dir.split("/").filter(Boolean);
+    if (segments[0] && segments[0].toLowerCase() === "content") segments = segments.slice(1);
 
     let node = root;
     let pathAcc = "";
@@ -710,9 +759,8 @@ function metaLineFooter(path) {
   if (indexEntry) {
     const dlSpan = document.createElement("span");
     const dlLink = document.createElement("a");
-    // Same origin as this page (Sites/ and Signatures/ are served as-is from the
-    // repo root), so the browser honors `download` natively - no fetch-to-blob
-    // workaround needed.
+    // Same origin as this page (content/ is served as-is from the repo root), so the
+    // browser honors `download` natively - no fetch-to-blob workaround needed.
     dlLink.href = localContentUrl(path);
     dlLink.textContent = "Download";
     dlLink.setAttribute("download", indexEntry.name);
@@ -724,7 +772,7 @@ function metaLineFooter(path) {
 
 /* ---------------------------------------------------------------------
  * XML frontmatter comment ("attribution") shared by every content type.
- * Every .bes export and Signatures/*.xml file embeds a leading XML
+ * Every .bes export and content/Signature/*.xml file embeds a leading XML
  * comment with fields like Description/Author/ID/Publisher/... before the
  * real root element (see dev/scripts/signature-schema.md). We surface its
  * raw text (comment delimiters stripped) as the first field of every doc,
@@ -947,6 +995,7 @@ function sanitizeNode(parent) {
  * ------------------------------------------------------------------- */
 
 (async function init() {
+  await initConfig();
   await loadFileList(false);
   const initialPath = new URL(location.href).searchParams.get("file");
   if (initialPath) {
